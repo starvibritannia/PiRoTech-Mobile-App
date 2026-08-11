@@ -6,6 +6,11 @@ import 'firebase_options.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'services/notification_service.dart';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() async {
   // Wajib ditambahkan jika main() menggunakan async
@@ -13,6 +18,7 @@ void main() async {
 
   // Menyalakan mesin Firebase berdasarkan file konfigurasi yang baru saja di-generate
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // await NotificationService().init();
 
   runApp(const PiroTechApp());
 }
@@ -401,9 +407,9 @@ class _BerandaScreenState extends State<BerandaScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1), // Efek transparan (Glassmorphism)
+        color: Colors.white.withValues(alpha: 0.1), // Efek transparan (Glassmorphism)
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +436,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             subtitle,
             style: TextStyle(
               fontSize: 11,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -452,7 +458,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -464,7 +470,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: iconColor),
@@ -599,7 +605,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -644,7 +650,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -771,7 +777,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     height: 1.5,
                   ),
                 ),
@@ -818,7 +824,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -1308,7 +1314,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   height: 1.5,
                 ),
               ),
@@ -1744,7 +1750,7 @@ class PanduanScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.red.withOpacity(0.05),
+                            color: Colors.red.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -2323,10 +2329,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Row(
@@ -2366,7 +2372,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Pantau dan kendalikan proses pengolahan sampah plastik menjadi bahan bakar cair secara real-time dari mana saja.',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       height: 1.5,
                     ),
                   ),
@@ -2585,7 +2591,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
 
   void _mulaiPantauSistem() {
     // 1. Pantau perubahan 'settings' dari Firebase secara realtime
-    _settingsSub = _dbRef.child('settings').onValue.listen((event) {
+    _settingsSub = _dbRef.child('config').onValue.listen((event) {
       if (event.snapshot.exists) {
         final data = Map<String, dynamic>.from(event.snapshot.value as Map);
         if (mounted) {
@@ -2661,6 +2667,17 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
           ServerValue.timestamp, // Catat waktu akurat dari mesin Firebase
       'is_read': false,
     });
+
+    if (_isPushEnabled) {
+      NotificationService().showNotification(
+        id: level == 'Critical' ? 1 : 2, // ID unik agar notifikasi bisa ditimpa
+        title: level == 'Critical'
+            ? '🚨 BAHAYA OVERHEAT!'
+            : '⚠️ Peringatan Suhu',
+        body: pesan,
+        isCritical: level == 'Critical',
+      );
+    }
   }
 
   // --- FUNGSI LACI NOTIFIKASI (BOTTOM SHEET) ---
@@ -3286,7 +3303,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -3339,7 +3356,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -3370,7 +3387,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -3403,7 +3420,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Tombol Mulai Proses
         // --- LOGIKA TOMBOL KONTROL PROSES ---
         if (!_isRunning)
           // TAMPILAN 1: JIKA BELUM MULAI
@@ -3505,23 +3521,45 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                           title: 'Hentikan Proses?',
                           content:
                               'Proses akan dihentikan sepenuhnya dan data simulasi akan dicatat. Yakin?',
-                          onConfirm: () {
+                          onConfirm: () async {
                             _timer?.cancel();
+
+                            // --- KODE BARU: SIMPAN DATA KE FIREBASE ---
+                            String dateStr = DateTime.now()
+                                .toString(); // Waktu saat ini
+                            await FirebaseDatabase.instance
+                                .ref()
+                                .child('log_activity')
+                                .push()
+                                .set({
+                                  'tanggal': dateStr,
+                                  'jenis_plastik':
+                                      _plasticData[_selectedIndex]['name'],
+                                  'berat_kg': _beratSampah,
+                                  'yield_persen': (currentYield * 100)
+                                      .toStringAsFixed(1),
+                                  'bbm_liter': estBbmLiters.toStringAsFixed(2),
+                                  'residu_kg': estResidu.toStringAsFixed(2),
+                                  'durasi': _formattedTime,
+                                });
+                            // ------------------------------------------
+
                             setState(() {
                               _isRunning = false;
                               _isPaused = false;
                               _elapsedSeconds = 0;
                             });
 
-                            // Menampilkan notifikasi popup (SnackBar) sementara di bawah layar
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Proses dihentikan. Data siap dikirim ke Log Activity.',
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Proses dihentikan. Data berhasil disimpan ke Log Activity!',
+                                  ),
+                                  backgroundColor: Color(0xFF427D46),
                                 ),
-                                backgroundColor: Color(0xFF427D46),
-                              ),
-                            );
+                              );
+                            }
                           },
                         );
                       },
@@ -3618,53 +3656,28 @@ class AdminMonitoringScreen extends StatefulWidget {
 class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
 
+  // Menambahkan Subscriptions untuk mencegah kebocoran memori
+  StreamSubscription<DatabaseEvent>? _sensorSub;
+  StreamSubscription<DatabaseEvent>? _buzzerSub;
+
   bool _isBuzzerOn = false;
   double _currentTemp = 0.0;
   String _systemStatus = 'IDLE';
   double _maxTemp = 0.0;
   List<FlSpot> _chartData = const [FlSpot(0, 0)];
 
-  // Variabel Timer
-  Timer? _timer;
-  int _elapsedSeconds = 0;
-
-  // Mengubah detik menjadi format teks durasi
-  String get _formattedTime {
-    if (_systemStatus != 'RUNNING') return '--:--:--'; // Garis-garis saat mati
-    int h = _elapsedSeconds ~/ 3600;
-    int m = (_elapsedSeconds % 3600) ~/ 60;
-    int s = _elapsedSeconds % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  void _startTimer() {
-    if (_timer != null && _timer!.isActive) return; // Mencegah timer ganda
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _elapsedSeconds++;
-        });
-      }
-    });
-  }
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _elapsedSeconds = 0;
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel(); // Wajib agar tidak error saat pindah halaman
-    super.dispose();
-  }
+  // --- VARIABEL HEARTBEAT (DETAK JANTUNG) ---
+  Timer? _heartbeatTimer;
+  int _lastTimestamp = 0;
 
   @override
   void initState() {
     super.initState();
 
     // Pendengar Kontrol Buzzer
-    _dbRef.child('control/buzzer').onValue.listen((DatabaseEvent event) {
+    _buzzerSub = _dbRef.child('control/buzzer').onValue.listen((
+      DatabaseEvent event,
+    ) {
       if (event.snapshot.value != null && mounted) {
         setState(() {
           _isBuzzerOn = event.snapshot.value as bool;
@@ -3673,51 +3686,89 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
     });
 
     // Pendengar Sensor Data
-    _dbRef.child('sensor_data').orderByKey().limitToLast(20).onValue.listen((
-      DatabaseEvent event,
-    ) {
-      if (event.snapshot.value != null && mounted) {
-        List<FlSpot> spots = [];
-        double latestTemp = 0.0;
-        String latestStatus = 'IDLE';
-        double highestTemp = 0.0;
+    _sensorSub = _dbRef
+        .child('sensor_data')
+        .orderByKey()
+        .limitToLast(20)
+        .onValue
+        .listen((DatabaseEvent event) {
+          if (event.snapshot.value != null && mounted) {
+            List<FlSpot> spots = [];
+            double latestTemp = 0.0;
+            String latestStatus = 'IDLE';
+            double highestTemp = 0.0;
+            int tempTimestamp = 0;
 
-        // 1. Cek status paling terakhir terlebih dahulu
-        for (var child in event.snapshot.children) {
-          final data = Map<String, dynamic>.from(child.value as Map);
-          latestStatus = data['status']?.toString().toUpperCase() ?? 'IDLE';
-        }
+            // 1. Cek status dan timestamp paling terakhir terlebih dahulu
+            for (var child in event.snapshot.children) {
+              final data = Map<String, dynamic>.from(child.value as Map);
+              latestStatus = data['status']?.toString().toUpperCase() ?? 'IDLE';
+              tempTimestamp =
+                  (data['timestamp'] ?? 0) as int; // Merekam waktu masuk
+            }
 
-        // 2. Jika statusnya RUNNING, masukkan data aslinya
-        if (latestStatus == 'RUNNING') {
-          double index = 0;
-          for (var child in event.snapshot.children) {
-            final data = Map<String, dynamic>.from(child.value as Map);
-            double temp = (data['temperature_c'] ?? 0.0).toDouble();
+            // 2. Jika statusnya RUNNING, masukkan data aslinya ke dalam grafik
+            if (latestStatus == 'RUNNING') {
+              double index = 0;
+              for (var child in event.snapshot.children) {
+                final data = Map<String, dynamic>.from(child.value as Map);
+                double temp = (data['temperature_c'] ?? 0.0).toDouble();
 
-            spots.add(FlSpot(index, temp));
-            index++;
+                spots.add(FlSpot(index, temp));
+                index++;
 
-            latestTemp = temp;
-            if (temp > highestTemp) highestTemp = temp;
+                latestTemp = temp;
+                if (temp > highestTemp) highestTemp = temp;
+              }
+            } else {
+              // 3. Jika statusnya IDLE/mati dari Firebase, paksa semua jadi 0
+              spots = const [FlSpot(0, 0)];
+              latestTemp = 0.0;
+              highestTemp = 0.0;
+            }
+
+            setState(() {
+              if (spots.isNotEmpty) _chartData = spots;
+              _currentTemp = latestTemp;
+              _systemStatus = latestStatus;
+              _maxTemp = highestTemp;
+              _lastTimestamp = tempTimestamp; // Perbarui stempel waktu
+            });
           }
-          _startTimer();
-        } else {
-          // 3. Jika statusnya IDLE/mati, paksa semua jadi 0 dan hentikan timer
-          spots = const [FlSpot(0, 0)];
-          latestTemp = 0.0;
-          highestTemp = 0.0;
-          _stopTimer();
-        }
+        });
 
+    // Jalankan mesin pengintai nyawa alat
+    _startHeartbeatMonitor();
+  }
+
+  // Fungsi Pintar Pengecek Alat Mati
+  void _startHeartbeatMonitor() {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+
+      int currentDeviceTime = DateTime.now().millisecondsSinceEpoch;
+      int timeDifference = currentDeviceTime - _lastTimestamp;
+
+      // Jika lebih dari 15 detik tidak ada laporan data baru masuk
+      if (_lastTimestamp > 0 && timeDifference > 15000) {
         setState(() {
-          if (spots.isNotEmpty) _chartData = spots;
-          _currentTemp = latestTemp;
-          _systemStatus = latestStatus;
-          _maxTemp = highestTemp;
+          _systemStatus = 'IDLE';
+          _currentTemp = 0.0;
+          _maxTemp = 0.0;
+          _chartData = const [
+            FlSpot(0, 0),
+          ]; // Ratakan grafik (garis lurus di bawah)
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _heartbeatTimer?.cancel(); // Bersihkan timer stopwatch
+    _sensorSub?.cancel(); // Bersihkan jalur data sensor
+    _buzzerSub?.cancel(); // Bersihkan jalur data buzzer
+    super.dispose();
   }
 
   @override
@@ -3843,9 +3894,10 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
+                        // Warna otomatis: Oranye jika nyala, Abu-abu jika mati
                         color: _systemStatus == 'RUNNING'
                             ? Colors.orange.shade700
-                            : const Color(0xFF1E293B),
+                            : Colors.grey,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -3862,49 +3914,6 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        // Kartu Durasi Proses
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF386641),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    color: Colors.white70,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'DURASI PROSES',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _formattedTime,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 24),
 
@@ -4012,7 +4021,7 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                                 show: true,
                                 color: const Color(
                                   0xFF427D46,
-                                ).withOpacity(0.15),
+                                ).withValues(alpha: 0.15),
                               ),
                             ),
                           ],
@@ -4092,8 +4101,8 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                     boxShadow: [
                       BoxShadow(
                         color: _isBuzzerOn
-                            ? Colors.red.withOpacity(0.3)
-                            : Colors.black.withOpacity(0.05),
+                            ? Colors.red.withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.05),
                         blurRadius: 15,
                         spreadRadius: 2,
                       ),
@@ -4137,7 +4146,7 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
 }
 
 // ==========================================
-// MENU 3: LOG ACTIVITY
+// MENU 3: LOG ACTIVITY & EXPORT CSV (DENGAN FILTER)
 // ==========================================
 class AdminLogActivityScreen extends StatefulWidget {
   const AdminLogActivityScreen({super.key});
@@ -4147,42 +4156,129 @@ class AdminLogActivityScreen extends StatefulWidget {
 }
 
 class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
-  // --- 1. VARIABEL STATE UNTUK PENCARIAN & TANGGAL ---
+  final DatabaseReference _dbRef = FirebaseDatabase.instance.ref();
+
+  // --- 1. VARIABEL STATE UNTUK DATA & PENCARIAN ---
+  List<Map<dynamic, dynamic>> _allLogs = [];
+  bool _isLoading = true;
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // --- 2. MOCK DATA (Data Simulasi agar bisa disaring) ---
-  final List<Map<String, String>> _mockData = [
-    {
-      'date': '06/08/2026, 19.10',
-      'weight': '15 kg',
-      'type': 'CAMPURAN',
-      'yield': '6.80 liter',
-      'temp': '390 / 420 °C',
-      'duration': '02:13:20',
-      'status': 'COMPLETED',
-    },
-    {
-      'date': '04/08/2026, 19.10',
-      'weight': '20 kg',
-      'type': 'PET',
-      'yield': '9.50 liter',
-      'temp': '380 / 410 °C',
-      'duration': '02:00:00',
-      'status': 'COMPLETED',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _muatDataLog(); // Panggil data dari Firebase saat halaman dibuka
+  }
 
-  // --- 3. FUNGSI MEMUNCULKAN KALENDER (DATE PICKER) ---
+  // --- 2. FUNGSI TARIK DATA DARI FIREBASE ---
+  void _muatDataLog() {
+    _dbRef.child('log_activity').onValue.listen((event) {
+      if (event.snapshot.exists && mounted) {
+        Map<dynamic, dynamic> logs =
+            event.snapshot.value as Map<dynamic, dynamic>;
+        List<Map<dynamic, dynamic>> tempList = [];
+
+        logs.forEach((key, value) {
+          tempList.add(value);
+        });
+
+        // Urutkan dari yang terbaru (Descending)
+        tempList.sort(
+          (a, b) => (b['tanggal'] ?? '').compareTo(a['tanggal'] ?? ''),
+        );
+
+        setState(() {
+          _allLogs = tempList;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _allLogs = [];
+          _isLoading = false;
+        });
+      }
+    });
+  }
+
+  // --- 3. FUNGSI SAKTI: EXPORT KE CSV ---
+  Future<void> _exportKeCSV(
+    List<Map<dynamic, dynamic>> dataYangDiekspor,
+  ) async {
+    if (dataYangDiekspor.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak ada data untuk diekspor pada rentang ini!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // 1. Buat Header (Baris Pertama Excel)
+      List<List<dynamic>> barisData = [];
+      barisData.add([
+        'Tanggal & Jam',
+        'Jenis Plastik',
+        'Berat (kg)',
+        'Yield (%)',
+        'Estimasi BBM (Liter)',
+        'Residu Padat (kg)',
+        'Durasi Proses',
+      ]);
+
+      // 2. Masukkan Isi Data (Hanya data yang sedang tampil/difilter)
+      for (var log in dataYangDiekspor) {
+        DateTime tgl =
+            DateTime.tryParse(log['tanggal'] ?? '') ?? DateTime.now();
+        String tglRapi =
+            "${tgl.day}/${tgl.month}/${tgl.year} ${tgl.hour.toString().padLeft(2, '0')}:${tgl.minute.toString().padLeft(2, '0')}";
+
+        barisData.add([
+          tglRapi,
+          log['jenis_plastik'] ?? '-',
+          log['berat_kg'] ?? 0,
+          log['yield_persen'] ?? 0,
+          log['bbm_liter'] ?? 0,
+          log['residu_kg'] ?? 0,
+          log['durasi'] ?? '-',
+        ]);
+      }
+
+      // 3. Konversi ke format CSV
+      String csvData = const ListToCsvConverter().convert(barisData);
+
+      // 4. Buat File Sementara di memori HP
+      final direktori = await getTemporaryDirectory();
+      final pathFile = '${direktori.path}/Log_Operasional_PiRoTech.csv';
+      final file = File(pathFile);
+      await file.writeAsString(csvData);
+
+      // 5. Munculkan Menu Bagikan (Share) bawaan HP Android
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Laporan Data Operasional PiRoTech');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengekspor: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // --- 4. FUNGSI MEMUNCULKAN KALENDER (DATE PICKER) ---
   Future<void> _pickDate(BuildContext context, bool isStart) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: isStart
+          ? (_startDate ?? DateTime.now())
+          : (_endDate ?? _startDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       builder: (context, child) {
-        // Mengubah tema warna kalender agar serasi dengan warna hijau PiRoTech
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
@@ -4196,11 +4292,14 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
       },
     );
 
-    // Jika pengguna memilih tanggal, simpan ke variabel
     if (picked != null) {
       setState(() {
         if (isStart) {
           _startDate = picked;
+          // Reset end date jika start date lebih maju dari end date
+          if (_endDate != null && _startDate!.isAfter(_endDate!)) {
+            _endDate = null;
+          }
         } else {
           _endDate = picked;
         }
@@ -4243,7 +4342,11 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
   }
 
   // Widget pembantu mencetak 1 Kartu Riwayat
-  Widget _buildHistoryCard(Map<String, String> data) {
+  Widget _buildHistoryCard(Map<dynamic, dynamic> log) {
+    DateTime tgl = DateTime.tryParse(log['tanggal'] ?? '') ?? DateTime.now();
+    String tglRapi =
+        "${tgl.day.toString().padLeft(2, '0')}/${tgl.month.toString().padLeft(2, '0')}/${tgl.year}, ${tgl.hour.toString().padLeft(2, '0')}:${tgl.minute.toString().padLeft(2, '0')}";
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -4253,7 +4356,7 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -4274,7 +4377,7 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    data['date']!,
+                    tglRapi,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2E5930),
@@ -4291,9 +4394,9 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
                   color: const Color(0xFFE8F1E9),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  data['status']!,
-                  style: const TextStyle(
+                child: const Text(
+                  'COMPLETED',
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF427D46),
@@ -4305,11 +4408,15 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
           const SizedBox(height: 12),
           const Divider(color: Colors.black12),
           const SizedBox(height: 12),
-          _buildDetailRow('Berat Sampah', data['weight']!),
-          _buildDetailRow('Jenis Plastik', data['type']!),
-          _buildDetailRow('Suhu Avg/Max', data['temp']!),
-          _buildDetailRow('Durasi Proses', data['duration']!),
-          _buildDetailRow('Hasil BBM Cair', data['yield']!, isHighlight: true),
+          _buildDetailRow('Berat Sampah', '${log['berat_kg']} kg'),
+          _buildDetailRow('Jenis Plastik', log['jenis_plastik'] ?? '-'),
+          _buildDetailRow('Yield Rate', '${log['yield_persen']} %'),
+          _buildDetailRow('Durasi Proses', log['durasi'] ?? '-'),
+          _buildDetailRow(
+            'Hasil BBM Cair',
+            '${log['bbm_liter']} Liter',
+            isHighlight: true,
+          ),
         ],
       ),
     );
@@ -4317,188 +4424,241 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Logika menyaring data berdasarkan teks pencarian
-    final filteredData = _mockData.where((item) {
-      return item['type']!.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          item['status']!.toLowerCase().contains(_searchQuery.toLowerCase());
+    // --- LOGIKA FILTER (Pencarian Teks & Rentang Tanggal) ---
+    final filteredData = _allLogs.where((log) {
+      // 1. Filter Pencarian Teks
+      bool matchesSearch = (log['jenis_plastik'] ?? '')
+          .toString()
+          .toLowerCase()
+          .contains(_searchQuery.toLowerCase());
+
+      // 2. Filter Tanggal
+      bool matchesDate = true;
+      DateTime? logDate = DateTime.tryParse(log['tanggal'] ?? '');
+
+      if (logDate != null) {
+        // Ambil hanya tanggalnya saja (tanpa jam) untuk akurasi filter
+        DateTime dateOnly = DateTime(logDate.year, logDate.month, logDate.day);
+
+        if (_startDate != null) {
+          DateTime startOnly = DateTime(
+            _startDate!.year,
+            _startDate!.month,
+            _startDate!.day,
+          );
+          if (dateOnly.isBefore(startOnly)) matchesDate = false;
+        }
+        if (_endDate != null) {
+          DateTime endOnly = DateTime(
+            _endDate!.year,
+            _endDate!.month,
+            _endDate!.day,
+          );
+          if (dateOnly.isAfter(endOnly)) matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesDate;
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text(
-          'Riwayat lengkap setiap sesi pengolahan sampah plastik.',
-          style: TextStyle(color: Colors.black54, fontSize: 14),
-        ),
-        const SizedBox(height: 24),
-
-        // --- BAGIAN FILTER & PENCARIAN ---
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAF9),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'Riwayat lengkap setiap sesi pengolahan sampah plastik.',
+            style: TextStyle(color: Colors.black54, fontSize: 14),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Kolom Pencarian
-              TextField(
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value; // Memperbarui variabel pencarian
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Cari status/jenis plastik...',
-                  hintStyle: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black38,
-                  ),
-                  prefixIcon: const Icon(Icons.search, color: Colors.black54),
-                  filled: true,
-                  fillColor: const Color(0xFFF2F5F2),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
+          const SizedBox(height: 24),
 
-              // Kolom Rentang Tanggal
-              Row(
-                children: [
-                  // Tanggal Awal
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _pickDate(context, true), // Buka kalender
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _formatDate(_startDate),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _startDate == null
-                                    ? Colors.black38
-                                    : Colors.black87,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.calendar_month,
-                              size: 16,
-                              color: Colors.black54,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text('-', style: TextStyle(color: Colors.black54)),
-                  ),
-
-                  // Tanggal Akhir
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _pickDate(context, false), // Buka kalender
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _formatDate(_endDate),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _endDate == null
-                                    ? Colors.black38
-                                    : Colors.black87,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.calendar_month,
-                              size: 16,
-                              color: Colors.black54,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Tombol Export CSV
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Tampilkan notifikasi (SnackBar) saat di-klik
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Mengunduh data CSV... (Simulasi)'),
-                        backgroundColor: Color(0xFF427D46),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text(
-                    'Export CSV',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF427D46),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 32),
-
-        // --- DAFTAR KARTU RIWAYAT (Dihasilkan dari filteredData) ---
-        if (filteredData.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Text(
-                'Data tidak ditemukan',
-                style: TextStyle(color: Colors.black45),
-              ),
+          // --- BAGIAN FILTER & PENCARIAN ---
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
             ),
-          )
-        else
-          ...filteredData.map((data) => _buildHistoryCard(data)).toList(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Kolom Pencarian
+                TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value; // Memperbarui variabel pencarian
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari jenis plastik (misal: PET)...',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black38,
+                    ),
+                    prefixIcon: const Icon(Icons.search, color: Colors.black54),
+                    filled: true,
+                    fillColor: const Color(0xFFF2F5F2),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-        const SizedBox(height: 40),
-      ],
+                // Kolom Rentang Tanggal
+                Row(
+                  children: [
+                    // Tanggal Awal
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _pickDate(context, true), // Buka kalender
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDate(_startDate),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _startDate == null
+                                      ? Colors.black38
+                                      : Colors.black87,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.calendar_month,
+                                size: 16,
+                                color: Colors.black54,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Tombol Reset Kalender
+                    if (_startDate != null || _endDate != null)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _startDate = null;
+                            _endDate = null;
+                          });
+                        },
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          '-',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ),
+
+                    // Tanggal Akhir
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _pickDate(context, false), // Buka kalender
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDate(_endDate),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _endDate == null
+                                      ? Colors.black38
+                                      : Colors.black87,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.calendar_month,
+                                size: 16,
+                                color: Colors.black54,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Tombol Export CSV (Hanya mengekspor data yang tampil!)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _exportKeCSV(filteredData),
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text(
+                      'Export Data CSV',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF427D46),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // --- DAFTAR KARTU RIWAYAT (Dihasilkan dari filteredData) ---
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: CircularProgressIndicator(color: Color(0xFF427D46)),
+              ),
+            )
+          else if (filteredData.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Text(
+                  'Data tidak ditemukan atau masih kosong.',
+                  style: TextStyle(color: Colors.black45),
+                ),
+              ),
+            )
+          else
+            ...filteredData.map((data) => _buildHistoryCard(data)),
+
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 }
@@ -4555,13 +4715,17 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
   // --- 5. FUNGSI TARIK DATA DARI FIREBASE ---
   Future<void> _muatPengaturan() async {
     try {
-      final snapshot = await _dbRef.child('settings').get();
+      // UBAH 1: Arahkan ke folder 'config' agar sama dengan ESP32
+      final snapshot = await _dbRef.child('config').get();
       if (snapshot.exists && mounted) {
         final data = Map<String, dynamic>.from(snapshot.value as Map);
         setState(() {
           _minTempController.text = data['min_temp']?.toString() ?? '';
           _maxTempController.text = data['max_temp']?.toString() ?? '';
-          _buzzerTempController.text = data['buzzer_trigger']?.toString() ?? '';
+
+          // UBAH 2: Baca dari kunci 'overheat_limit'
+          _buzzerTempController.text = data['overheat_limit']?.toString() ?? '';
+
           _warningSensitivityController.text =
               data['warning_percent']?.toString() ?? '';
           _isPushEnabled = data['push_enabled'] ?? true;
@@ -4595,10 +4759,14 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _dbRef.child('settings').set({
+      // UBAH 3: Simpan ke dalam folder 'config'
+      await _dbRef.child('config').set({
         'min_temp': double.tryParse(_minTempController.text) ?? 20.0,
         'max_temp': double.tryParse(_maxTempController.text) ?? 450.0,
-        'buzzer_trigger': double.tryParse(_buzzerTempController.text) ?? 400.0,
+
+        // UBAH 4: Simpan dengan nama kunci 'overheat_limit' agar dikenali ESP32
+        'overheat_limit': double.tryParse(_buzzerTempController.text) ?? 100.0,
+
         'warning_percent':
             double.tryParse(_warningSensitivityController.text) ?? 90.0,
         'push_enabled': _isPushEnabled,
@@ -4684,7 +4852,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: textColor.withOpacity(0.3)),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4707,7 +4875,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                 Text(
                   desc,
                   style: TextStyle(
-                    color: textColor.withOpacity(0.8),
+                    color: textColor.withValues(alpha: 0.8),
                     fontSize: 11,
                     height: 1.4,
                   ),
@@ -4928,7 +5096,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                   color: Colors.black54,
                   size: 20,
                 ),
-                activeColor: const Color(0xFF427D46),
+                activeThumbColor: const Color(0xFF427D46),
                 contentPadding: EdgeInsets.zero,
                 value: _isPushEnabled,
                 onChanged: (bool value) {
@@ -4947,7 +5115,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                   color: Colors.black54,
                   size: 20,
                 ),
-                activeColor: const Color(0xFF427D46),
+                activeThumbColor: const Color(0xFF427D46),
                 contentPadding: EdgeInsets.zero,
                 value: _isEmailEnabled,
                 onChanged: (bool value) {

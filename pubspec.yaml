@@ -19,7 +19,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.2.2
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -30,6 +30,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_local_notifications: ^17.1.2
+  csv: ^6.0.0
+  path_provider: ^2.1.2
+  share_plus: ^10.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -101,3 +105,6 @@ flutter_launcher_icons:
   image_path: "assets/icon.png"
   adaptive_icon_background: "#FFFFFF" # Warna putih solid untuk latar belakang
   adaptive_icon_foreground: "assets/icon.png" # Logomu yang akan diletakkan di tengah
+
+dependency_overrides:
+  web: ^1.0.0
