@@ -18,7 +18,7 @@ void main() async {
 
   // Menyalakan mesin Firebase berdasarkan file konfigurasi yang baru saja di-generate
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // await NotificationService().init();
+  await NotificationService().init();
 
   runApp(const PiroTechApp());
 }
@@ -207,8 +207,8 @@ class _MainOverviewScreenState extends State<MainOverviewScreen> {
           ),
         ],
       ),
-      body:
-          pages[_currentIndex], // Menggunakan variabel pages yang ada di dalam build
+      body: pages[
+          _currentIndex], // Menggunakan variabel pages yang ada di dalam build
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -407,7 +407,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1), // Efek transparan (Glassmorphism)
+        color: Colors.white
+            .withValues(alpha: 0.1), // Efek transparan (Glassmorphism)
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
@@ -912,11 +913,11 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3, // 3 kolom ke samping
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 0.85,
-                          ),
+                        crossAxisCount: 3, // 3 kolom ke samping
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.85,
+                      ),
                       itemCount: _plasticData.length,
                       itemBuilder: (context, index) {
                         bool isSelected = _selectedIndex == index;
@@ -2568,7 +2569,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
   StreamSubscription<DatabaseEvent>? _settingsSub;
 
   // Variabel penampung pengaturan
-  double _maxTemp = 450.0;
+  double _overheatLimit = 100.0;
   double _warningPercent = 90.0;
   bool _isPushEnabled = true;
 
@@ -2596,7 +2597,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
         final data = Map<String, dynamic>.from(event.snapshot.value as Map);
         if (mounted) {
           setState(() {
-            _maxTemp = (data['max_temp'] ?? 450.0).toDouble();
+            _overheatLimit = (data['overheat_limit'] ?? 100.0).toDouble();
             _warningPercent = (data['warning_percent'] ?? 90.0).toDouble();
             _isPushEnabled = data['push_enabled'] ?? true;
           });
@@ -2611,42 +2612,40 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
         .limitToLast(1) // Hanya ambil 1 data paling bawah (terbaru)
         .onValue
         .listen((event) {
-          if (event.snapshot.exists && _isPushEnabled) {
-            // Karena menggunakan limitToLast, data dibungkus oleh kode unik (Push ID)
-            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      if (event.snapshot.exists && _isPushEnabled) {
+        // Karena menggunakan limitToLast, data dibungkus oleh kode unik (Push ID)
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-            // Ekstrak isi data dari dalam kode unik tersebut
-            final latestData = Map<String, dynamic>.from(
-              data.values.first as Map,
-            );
+        // Ekstrak isi data dari dalam kode unik tersebut
+        final latestData = Map<String, dynamic>.from(
+          data.values.first as Map,
+        );
 
-            // Cek dan ambil nilai temperature_c
-            if (latestData.containsKey('temperature_c')) {
-              double currentTemp = (latestData['temperature_c'] as num)
-                  .toDouble();
-              _cekAmbangBatas(currentTemp);
-            }
-          }
-        });
+        // Cek dan ambil nilai temperature_c
+        if (latestData.containsKey('temperature_c')) {
+          double currentTemp = (latestData['temperature_c'] as num).toDouble();
+          _cekAmbangBatas(currentTemp);
+        }
+      }
+    });
   }
 
   void _cekAmbangBatas(double suhuSaatIni) {
-    // Hitung titik threshold Warning (Misal: 90% dari 450 = 405)
-    double warningThreshold = _maxTemp * (_warningPercent / 100.0);
+    // Hitung titik threshold Warning berdasarkan angka pemicu Buzzer
+    double warningThreshold = _overheatLimit * (_warningPercent / 100.0);
     String newLevel = 'Normal';
 
-    // Klasifikasi level bahaya
-    if (suhuSaatIni >= _maxTemp) {
+    // Klasifikasi level bahaya: Critical jika menyentuh batas Buzzer
+    if (suhuSaatIni >= _overheatLimit) {
       newLevel = 'Critical';
     } else if (suhuSaatIni >= warningThreshold) {
       newLevel = 'Warning';
     }
 
-    // SISTEM ANTI-SPAM: Hanya memproses jika status level berubah (Misal: dari Normal -> Warning)
+    // SISTEM ANTI-SPAM: Hanya memproses jika status level berubah
     if (newLevel != _currentAlertLevel) {
-      _currentAlertLevel = newLevel; // Perbarui status satpam
+      _currentAlertLevel = newLevel;
 
-      // Jika levelnya bukan normal, kirim catatannya ke Firebase
       if (newLevel != 'Normal') {
         _simpanRiwayatNotifikasi(newLevel, suhuSaatIni);
       }
@@ -2671,9 +2670,8 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
     if (_isPushEnabled) {
       NotificationService().showNotification(
         id: level == 'Critical' ? 1 : 2, // ID unik agar notifikasi bisa ditimpa
-        title: level == 'Critical'
-            ? '🚨 BAHAYA OVERHEAT!'
-            : '⚠️ Peringatan Suhu',
+        title:
+            level == 'Critical' ? '🚨 BAHAYA OVERHEAT!' : '⚠️ Peringatan Suhu',
         body: pesan,
         isCritical: level == 'Critical',
       );
@@ -2691,8 +2689,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(16),
-          height:
-              MediaQuery.of(context).size.height *
+          height: MediaQuery.of(context).size.height *
               0.6, // Tinggi laci 60% dari layar
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2889,11 +2886,57 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
                 ),
               ),
               onTap: () {
-                // Saat ditekan, hapus semua riwayat halaman dan kembali ke halaman Login
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
+                // Menampilkan kotak dialog konfirmasi
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    title: const Text(
+                      'Konfirmasi Keluar',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E5930),
+                      ),
+                    ),
+                    content: const Text(
+                      'Apakah Anda yakin ingin keluar dari panel admin?',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                    actions: [
+                      // Tombol "Tidak"
+                      TextButton(
+                        onPressed: () => Navigator.pop(
+                            context), // Menutup dialog tanpa aksi lain
+                        child: const Text('Tidak',
+                            style: TextStyle(color: Colors.grey)),
+                      ),
+                      // Tombol "Ya"
+                      ElevatedButton(
+                        onPressed: () {
+                          // Mengembalikan ke halaman beranda paling awal (MainOverviewScreen)
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MainOverviewScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Colors.red, // Tombol "Ya" diwarnai merah
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Ya, Keluar'),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -2901,7 +2944,10 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
           ],
         ),
       ),
-      body: _pages[_selectedIndex], // Tampilkan halaman sesuai menu yang diklik
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
+      ),
     );
   }
 
@@ -2955,6 +3001,47 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   bool _isPaused = false;
   int _elapsedSeconds = 0;
 
+  // --- VARIABEL KODE BARU: Data Dinamis Firebase ---
+  double _totalSampah = 0.0;
+  double _rataRataHasil = 0.0;
+  StreamSubscription<DatabaseEvent>? _logSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _muatDataRingkasan(); // Panggil fungsi saat halaman dimuat
+  }
+
+  void _muatDataRingkasan() {
+    // Mendengarkan data secara real-time dari log_activity
+    _logSub = FirebaseDatabase.instance
+        .ref()
+        .child('log_activity')
+        .onValue
+        .listen((event) {
+      if (event.snapshot.exists && mounted) {
+        final logs = event.snapshot.value as Map<dynamic, dynamic>;
+        double totalBerat = 0.0;
+        double totalBBM = 0.0;
+
+        // Loop untuk menjumlahkan semua berat dan BBM
+        logs.forEach((key, value) {
+          final data = Map<String, dynamic>.from(value as Map);
+          totalBerat +=
+              double.tryParse(data['berat_kg']?.toString() ?? '0') ?? 0.0;
+          totalBBM +=
+              double.tryParse(data['bbm_liter']?.toString() ?? '0') ?? 0.0;
+        });
+
+        // Perbarui tampilan dengan rumus rata-rata
+        setState(() {
+          _totalSampah = totalBerat;
+          _rataRataHasil = totalBerat > 0 ? (totalBBM / totalBerat) : 0.0;
+        });
+      }
+    });
+  }
+
   // Mengubah detik menjadi format HH:MM:SS
   String get _formattedTime {
     int h = _elapsedSeconds ~/ 3600;
@@ -2976,6 +3063,7 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _logSub?.cancel(); // KODE BARU: Matikan pengintai Firebase
     super.dispose();
   }
 
@@ -3171,7 +3259,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                 style: TextStyle(fontSize: 13, color: Colors.black54),
               ),
               const SizedBox(height: 20),
-
               const Text(
                 'Berat Sampah (kg)',
                 style: TextStyle(
@@ -3199,7 +3286,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
               const Text(
                 'Jenis Plastik',
                 style: TextStyle(
@@ -3525,23 +3611,23 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                             _timer?.cancel();
 
                             // --- KODE BARU: SIMPAN DATA KE FIREBASE ---
-                            String dateStr = DateTime.now()
-                                .toString(); // Waktu saat ini
+                            String dateStr =
+                                DateTime.now().toString(); // Waktu saat ini
                             await FirebaseDatabase.instance
                                 .ref()
                                 .child('log_activity')
                                 .push()
                                 .set({
-                                  'tanggal': dateStr,
-                                  'jenis_plastik':
-                                      _plasticData[_selectedIndex]['name'],
-                                  'berat_kg': _beratSampah,
-                                  'yield_persen': (currentYield * 100)
-                                      .toStringAsFixed(1),
-                                  'bbm_liter': estBbmLiters.toStringAsFixed(2),
-                                  'residu_kg': estResidu.toStringAsFixed(2),
-                                  'durasi': _formattedTime,
-                                });
+                              'tanggal': dateStr,
+                              'jenis_plastik': _plasticData[_selectedIndex]
+                                  ['name'],
+                              'berat_kg': _beratSampah,
+                              'yield_persen':
+                                  (currentYield * 100).toStringAsFixed(1),
+                              'bbm_liter': estBbmLiters.toStringAsFixed(2),
+                              'residu_kg': estResidu.toStringAsFixed(2),
+                              'durasi': _formattedTime,
+                            });
                             // ------------------------------------------
 
                             setState(() {
@@ -3599,40 +3685,28 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         const SizedBox(height: 16),
 
         GridView.count(
-          crossAxisCount: 2, // 2 kolom
+          crossAxisCount: 2, // Tetap 2 kolom
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 0.75, // Disesuaikan agar muat
+          childAspectRatio: 0.85,
           children: [
+            // Kartu 1: Diambil dari _rataRataHasil
             _buildSummaryCard(
               Icons.bar_chart,
               'Rata-Rata Hasil',
-              '0.47',
+              _rataRataHasil.toStringAsFixed(2),
               'liter/kg',
-              'Rata-rata yield (liter BBM per kg plastik) dari seluruh pengolahan.',
+              'Rata-rata yield (liter BBM per kg plastik) dari seluruh data log.',
             ),
-            _buildSummaryCard(
-              Icons.payments_outlined,
-              'Nilai Ekonomis',
-              '110.8',
-              'Ribu',
-              'Berdasarkan harga BBM setara solar ≈ Rp 6.800/liter. Potensi pendapatan.',
-            ),
-            _buildSummaryCard(
-              Icons.eco_outlined,
-              'Dampak Lingkungan',
-              '101.5',
-              'kg CO2',
-              'Emisi gas rumah kaca yang berhasil dicegah (vs pembakaran).',
-            ),
+            // Kartu 2: Diambil dari _totalSampah
             _buildSummaryCard(
               Icons.delete_outline,
               'Total Sampah',
-              '35.0',
+              _totalSampah.toStringAsFixed(1),
               'kg',
-              'Akumulasi seluruh sampah plastik yang telah diproses.',
+              'Akumulasi berat sampah plastik yang berhasil diproses.',
             ),
           ],
         ),
@@ -3692,50 +3766,50 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
         .limitToLast(20)
         .onValue
         .listen((DatabaseEvent event) {
-          if (event.snapshot.value != null && mounted) {
-            List<FlSpot> spots = [];
-            double latestTemp = 0.0;
-            String latestStatus = 'IDLE';
-            double highestTemp = 0.0;
-            int tempTimestamp = 0;
+      if (event.snapshot.value != null && mounted) {
+        List<FlSpot> spots = [];
+        double latestTemp = 0.0;
+        String latestStatus = 'IDLE';
+        double highestTemp = 0.0;
+        int tempTimestamp = 0;
 
-            // 1. Cek status dan timestamp paling terakhir terlebih dahulu
-            for (var child in event.snapshot.children) {
-              final data = Map<String, dynamic>.from(child.value as Map);
-              latestStatus = data['status']?.toString().toUpperCase() ?? 'IDLE';
-              tempTimestamp =
-                  (data['timestamp'] ?? 0) as int; // Merekam waktu masuk
-            }
+        // 1. Cek status dan timestamp paling terakhir terlebih dahulu
+        for (var child in event.snapshot.children) {
+          final data = Map<String, dynamic>.from(child.value as Map);
+          latestStatus = data['status']?.toString().toUpperCase() ?? 'IDLE';
+          tempTimestamp =
+              (data['timestamp'] ?? 0) as int; // Merekam waktu masuk
+        }
 
-            // 2. Jika statusnya RUNNING, masukkan data aslinya ke dalam grafik
-            if (latestStatus == 'RUNNING') {
-              double index = 0;
-              for (var child in event.snapshot.children) {
-                final data = Map<String, dynamic>.from(child.value as Map);
-                double temp = (data['temperature_c'] ?? 0.0).toDouble();
+        // 2. Jika statusnya RUNNING, masukkan data aslinya ke dalam grafik
+        if (latestStatus == 'RUNNING') {
+          double index = 0;
+          for (var child in event.snapshot.children) {
+            final data = Map<String, dynamic>.from(child.value as Map);
+            double temp = (data['temperature_c'] ?? 0.0).toDouble();
 
-                spots.add(FlSpot(index, temp));
-                index++;
+            spots.add(FlSpot(index, temp));
+            index++;
 
-                latestTemp = temp;
-                if (temp > highestTemp) highestTemp = temp;
-              }
-            } else {
-              // 3. Jika statusnya IDLE/mati dari Firebase, paksa semua jadi 0
-              spots = const [FlSpot(0, 0)];
-              latestTemp = 0.0;
-              highestTemp = 0.0;
-            }
-
-            setState(() {
-              if (spots.isNotEmpty) _chartData = spots;
-              _currentTemp = latestTemp;
-              _systemStatus = latestStatus;
-              _maxTemp = highestTemp;
-              _lastTimestamp = tempTimestamp; // Perbarui stempel waktu
-            });
+            latestTemp = temp;
+            if (temp > highestTemp) highestTemp = temp;
           }
+        } else {
+          // 3. Jika statusnya IDLE/mati dari Firebase, paksa semua jadi 0
+          spots = const [FlSpot(0, 0)];
+          latestTemp = 0.0;
+          highestTemp = 0.0;
+        }
+
+        setState(() {
+          if (spots.isNotEmpty) _chartData = spots;
+          _currentTemp = latestTemp;
+          _systemStatus = latestStatus;
+          _maxTemp = highestTemp;
+          _lastTimestamp = tempTimestamp; // Perbarui stempel waktu
         });
+      }
+    });
 
     // Jalankan mesin pengintai nyawa alat
     _startHeartbeatMonitor();
@@ -3951,7 +4025,6 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                 ],
               ),
               const SizedBox(height: 32),
-
               SizedBox(
                 height: 180,
                 width: double.infinity,
@@ -4080,7 +4153,6 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-
               GestureDetector(
                 onTap: () {
                   _dbRef.child('control/buzzer').set(!_isBuzzerOn);
@@ -4164,6 +4236,7 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
   String _searchQuery = '';
   DateTime? _startDate;
   DateTime? _endDate;
+  List<String> _selectedKeys = [];
 
   @override
   void initState() {
@@ -4180,7 +4253,10 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
         List<Map<dynamic, dynamic>> tempList = [];
 
         logs.forEach((key, value) {
-          tempList.add(value);
+          // HARUS DIBUAT VARIABEL BARU AGAR BISA DITAMBAHKAN 'key'
+          var logData = Map<dynamic, dynamic>.from(value as Map);
+          logData['key'] = key; // INI BARIS YANG TERLEWAT! Sangat wajib ada.
+          tempList.add(logData);
         });
 
         // Urutkan dari yang terbaru (Descending)
@@ -4341,8 +4417,55 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
     );
   }
 
+// --- KODE BARU: FUNGSI HAPUS LOG ---
+  void _hapusLogTerpilih() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hapus Data?',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: Text(
+            'Apakah Anda yakin ingin menghapus ${_selectedKeys.length} log yang dipilih? Tindakan ini tidak bisa dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Hapus semua data terpilih dari Firebase secara otomatis
+              for (String key in _selectedKeys) {
+                await _dbRef.child('log_activity').child(key).remove();
+              }
+              setState(() {
+                _selectedKeys
+                    .clear(); // Bersihkan pilihan setelah sukses dihapus
+              });
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Data berhasil dihapus!'),
+                      backgroundColor: Colors.green),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Ya, Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Widget pembantu mencetak 1 Kartu Riwayat
   Widget _buildHistoryCard(Map<dynamic, dynamic> log) {
+    String logKey = (log['key'] ?? '').toString();
+    bool isSelected = _selectedKeys.contains(logKey);
+
     DateTime tgl = DateTime.tryParse(log['tanggal'] ?? '') ?? DateTime.now();
     String tglRapi =
         "${tgl.day.toString().padLeft(2, '0')}/${tgl.month.toString().padLeft(2, '0')}/${tgl.year}, ${tgl.hour.toString().padLeft(2, '0')}:${tgl.minute.toString().padLeft(2, '0')}";
@@ -4351,16 +4474,13 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected
+            ? const Color(0xFFF0F7F1)
+            : Colors.white, // Ubah warna latar jika dicentang
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+            color: isSelected ? const Color(0xFF427D46) : Colors.grey.shade200,
+            width: isSelected ? 1.5 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4370,6 +4490,26 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
             children: [
               Row(
                 children: [
+                  // KODE BARU: Kotak Centang
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: isSelected,
+                      activeColor: const Color(0xFF427D46),
+                      side: BorderSide(color: Colors.grey.shade400),
+                      onChanged: (bool? value) {
+                        setState(() {
+                          if (value == true) {
+                            _selectedKeys.add(logKey);
+                          } else {
+                            _selectedKeys.remove(logKey);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   const Icon(
                     Icons.calendar_today_outlined,
                     size: 16,
@@ -4386,10 +4526,8 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F1E9),
                   borderRadius: BorderRadius.circular(12),
@@ -4412,11 +4550,8 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
           _buildDetailRow('Jenis Plastik', log['jenis_plastik'] ?? '-'),
           _buildDetailRow('Yield Rate', '${log['yield_persen']} %'),
           _buildDetailRow('Durasi Proses', log['durasi'] ?? '-'),
-          _buildDetailRow(
-            'Hasil BBM Cair',
-            '${log['bbm_liter']} Liter',
-            isHighlight: true,
-          ),
+          _buildDetailRow('Hasil BBM Cair', '${log['bbm_liter']} Liter',
+              isHighlight: true),
         ],
       ),
     );
@@ -4610,25 +4745,103 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Tombol Export CSV (Hanya mengekspor data yang tampil!)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _exportKeCSV(filteredData),
-                    icon: const Icon(Icons.download, size: 18),
-                    label: const Text(
-                      'Export Data CSV',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF427D46),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                // Tombol Aksi (Export CSV & Hapus)
+                // Tombol Aksi (Export CSV, Pilih Semua, & Hapus)
+                Row(
+                  children: [
+                    // 1. Tombol Export CSV
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _exportKeCSV(filteredData),
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text(
+                          'Export CSV',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF427D46),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+
+                    // 2. KODE BARU: Tombol Pilih Semua / Batal Pilih
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            // Cek apakah semua data yang TAMPIL sudah terpilih
+                            bool isAllSelected =
+                                _selectedKeys.length == filteredData.length &&
+                                    filteredData.isNotEmpty;
+
+                            if (isAllSelected) {
+                              _selectedKeys.clear(); // Batal pilih semua
+                            } else {
+                              // Pilih semua data yang sedang tampil (difilter)
+                              _selectedKeys = filteredData
+                                  .map((log) => (log['key'] ?? '').toString())
+                                  .toList();
+                            }
+                          });
+                        },
+                        icon: Icon(
+                            _selectedKeys.length == filteredData.length &&
+                                    filteredData.isNotEmpty
+                                ? Icons.deselect
+                                : Icons.checklist,
+                            size: 18),
+                        label: Text(
+                            _selectedKeys.length == filteredData.length &&
+                                    filteredData.isNotEmpty
+                                ? 'Batal Pilih'
+                                : 'Pilih Semua',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE8F1E9),
+                          foregroundColor: const Color(0xFF427D46),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: const BorderSide(
+                                color: Color(0xFF427D46), width: 1),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 3. Tombol Hapus (Muncul jika ada yang dicentang)
+                    if (_selectedKeys.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _hapusLogTerpilih,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: Text('Hapus (${_selectedKeys.length})',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade50,
+                            foregroundColor: Colors.red.shade700,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Colors.red.shade200),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -4679,12 +4892,6 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
   bool _isLoading = true;
 
   // --- 2. CONTROLLER BAWAAN ASLIMU ---
-  final TextEditingController _minTempController = TextEditingController(
-    text: '',
-  );
-  final TextEditingController _maxTempController = TextEditingController(
-    text: '',
-  );
   final TextEditingController _buzzerTempController = TextEditingController(
     text: '',
   );
@@ -4693,7 +4900,6 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
 
   // --- 3. VARIABEL TOGGLE SWITCH ---
   bool _isPushEnabled = true;
-  bool _isEmailEnabled = false;
 
   // --- 4. SIKLUS HIDUP HALAMAN (INIT & DISPOSE) ---
   @override
@@ -4705,8 +4911,6 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
   @override
   void dispose() {
     // Wajib ada agar memori HP tidak bocor
-    _minTempController.dispose();
-    _maxTempController.dispose();
     _buzzerTempController.dispose();
     _warningSensitivityController.dispose();
     super.dispose();
@@ -4720,16 +4924,12 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
       if (snapshot.exists && mounted) {
         final data = Map<String, dynamic>.from(snapshot.value as Map);
         setState(() {
-          _minTempController.text = data['min_temp']?.toString() ?? '';
-          _maxTempController.text = data['max_temp']?.toString() ?? '';
-
           // UBAH 2: Baca dari kunci 'overheat_limit'
           _buzzerTempController.text = data['overheat_limit']?.toString() ?? '';
 
           _warningSensitivityController.text =
               data['warning_percent']?.toString() ?? '';
           _isPushEnabled = data['push_enabled'] ?? true;
-          _isEmailEnabled = data['email_enabled'] ?? false;
         });
       }
     } catch (e) {
@@ -4743,9 +4943,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
 
   // --- 6. FUNGSI SIMPAN DATA KE FIREBASE ---
   Future<void> _simpanPengaturan() async {
-    if (_minTempController.text.isEmpty ||
-        _maxTempController.text.isEmpty ||
-        _buzzerTempController.text.isEmpty ||
+    if (_buzzerTempController.text.isEmpty ||
         _warningSensitivityController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -4761,16 +4959,12 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
     try {
       // UBAH 3: Simpan ke dalam folder 'config'
       await _dbRef.child('config').set({
-        'min_temp': double.tryParse(_minTempController.text) ?? 20.0,
-        'max_temp': double.tryParse(_maxTempController.text) ?? 450.0,
-
         // UBAH 4: Simpan dengan nama kunci 'overheat_limit' agar dikenali ESP32
         'overheat_limit': double.tryParse(_buzzerTempController.text) ?? 100.0,
 
         'warning_percent':
             double.tryParse(_warningSensitivityController.text) ?? 90.0,
         'push_enabled': _isPushEnabled,
-        'email_enabled': _isEmailEnabled,
       });
 
       if (mounted) {
@@ -4945,37 +5139,6 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-
-              const Text(
-                'Batas Suhu Normal',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF427D46),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildNumberInput(
-                      'Suhu Min (°C)',
-                      _minTempController,
-                      hint: 'Contoh: 20',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildNumberInput(
-                      'Suhu Maks (°C)',
-                      _maxTempController,
-                      hint: 'Contoh: 450',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
               const Text(
                 'Peringatan Alarm (Buzzer)',
                 style: TextStyle(
@@ -4994,36 +5157,6 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
               const Text(
                 'Buzzer akan berbunyi secara otomatis saat suhu melewati batas ini.',
                 style: TextStyle(fontSize: 11, color: Colors.black45),
-              ),
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _simpanPengaturan,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF427D46),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Simpan Pengaturan',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                ),
               ),
             ],
           ),
@@ -5105,25 +5238,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                   });
                 },
               ),
-              SwitchListTile(
-                title: const Text(
-                  'Notifikasi Email',
-                  style: TextStyle(fontSize: 13),
-                ),
-                secondary: const Icon(
-                  Icons.email_outlined,
-                  color: Colors.black54,
-                  size: 20,
-                ),
-                activeThumbColor: const Color(0xFF427D46),
-                contentPadding: EdgeInsets.zero,
-                value: _isEmailEnabled,
-                onChanged: (bool value) {
-                  setState(() {
-                    _isEmailEnabled = value;
-                  });
-                },
-              ),
+
               const SizedBox(height: 16),
 
               const Text(
@@ -5168,7 +5283,7 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _isLoading ? null : _simpanPengaturan,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF427D46),
                     foregroundColor: Colors.white,
@@ -5178,10 +5293,19 @@ class _AdminPengaturanScreenState extends State<AdminPengaturanScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    'Simpan Pengaturan',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Simpan Pengaturan',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
             ],
