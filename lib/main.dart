@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   // Wajib ditambahkan jika main() menggunakan async
@@ -2033,8 +2034,83 @@ class PanduanScreen extends StatelessWidget {
 // ==========================================
 // HALAMAN 3: HUBUNGI KAMI
 // ==========================================
-class HubungiScreen extends StatelessWidget {
+class HubungiScreen extends StatefulWidget {
   const HubungiScreen({super.key});
+
+  @override
+  State<HubungiScreen> createState() => _HubungiScreenState();
+}
+
+class _HubungiScreenState extends State<HubungiScreen> {
+  // --- 1. Controller untuk menangkap teks inputan (Email DIHAPUS) ---
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _pesanController = TextEditingController();
+
+  @override
+  void dispose() {
+    // Wajib dibersihkan agar memori HP tidak bocor
+    _namaController.dispose();
+    _pesanController.dispose();
+    super.dispose();
+  }
+
+  // --- 2. Fungsi Eksekusi Kirim Email ---
+  Future<void> _kirimPesan() async {
+    final nama = _namaController.text.trim();
+    final pesan = _pesanController.text.trim();
+
+    // Validasi: Cek apakah nama atau pesan kosong
+    if (nama.isEmpty || pesan.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Harap isi Nama dan Pesan terlebih dahulu!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Meracik format email
+    final emailTujuan = 'pirotechsvipb@gmail.com';
+    final subjek = 'Pertanyaan/Kerja Sama PiRoTech - $nama';
+
+    // Template pesan yang jauh lebih profesional (menggunakan Triple Quotes)
+    final isiPesan = '''Halo Tim PiRoTech,
+
+Perkenalkan, nama saya $nama. Saya menghubungi Anda melalui aplikasi PiRoTech terkait hal berikut:
+
+$pesan
+
+Terima kasih atas waktu dan perhatiannya. Saya tunggu respons dari tim PiRoTech.
+
+Hormat saya,
+$nama''';
+
+    // Uri.encodeComponent digunakan agar karakter spasi dan enter (baris baru) terbaca rapi di Gmail
+    final url = Uri.parse(
+        'mailto:$emailTujuan?subject=${Uri.encodeComponent(subjek)}&body=${Uri.encodeComponent(isiPesan)}');
+
+    try {
+      // Membuka aplikasi Gmail / Email bawaan HP
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+        // (Opsional) Mengosongkan form setelah pengguna kembali ke aplikasi
+        _namaController.clear();
+        _pesanController.clear();
+      } else {
+        throw 'Tidak dapat membuka aplikasi email.';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal membuka aplikasi email di HP Anda.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2074,7 +2150,7 @@ class HubungiScreen extends StatelessWidget {
               _buildContactItem(
                 Icons.email_outlined,
                 'Email',
-                'info@pirotech.id',
+                'pirotechsvipb@gmail.com',
               ),
               const Divider(height: 24, color: Colors.black12),
               _buildContactItem(
@@ -2086,7 +2162,7 @@ class HubungiScreen extends StatelessWidget {
               _buildContactItem(
                 Icons.phone_outlined,
                 'Telepon/WhatsApp',
-                '+62 812-3456-7890',
+                '+62 857-2050-3618',
               ),
             ],
           ),
@@ -2103,13 +2179,12 @@ class HubungiScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _buildTextField('Nama Lengkap', 'Masukkan nama Anda'),
-        const SizedBox(height: 16),
-        _buildTextField('Email', 'Masukkan alamat email Anda'),
+        _buildTextField('Nama Lengkap', 'Masukkan nama Anda', _namaController),
         const SizedBox(height: 16),
         _buildTextField(
           'Pesan',
           'Tulis pesan, pertanyaan, atau penawaran Anda di sini...',
+          _pesanController,
           maxLines: 4,
         ),
         const SizedBox(height: 24),
@@ -2118,9 +2193,8 @@ class HubungiScreen extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () {
-              // Nanti bisa ditambahkan logika untuk mengirim form
-            },
+            // Memanggil fungsi kirim pesan saat ditekan
+            onPressed: _kirimPesan,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF427D46),
               foregroundColor: Colors.white,
@@ -2151,7 +2225,7 @@ class HubungiScreen extends StatelessWidget {
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Color(0xFF427D46), size: 20),
+          child: Icon(icon, color: const Color(0xFF427D46), size: 20),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -2177,8 +2251,10 @@ class HubungiScreen extends StatelessWidget {
     );
   }
 
-  // Method pembantu untuk Kolom Input (TextField)
-  Widget _buildTextField(String label, String hint, {int maxLines = 1}) {
+  // Method pembantu untuk Kolom Input (TextField) ditambahkan parameter controller
+  Widget _buildTextField(
+      String label, String hint, TextEditingController controller,
+      {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2191,6 +2267,7 @@ class HubungiScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller, // Menghubungkan controller ke TextField
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
