@@ -9,12 +9,14 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  bool _hasPermission = false;
+
   Future<void> init() async {
-    // Pengaturan untuk Android (menggunakan ikon aplikasi bawaan '@mipmap/ic_launcher')
+    // Pengaturan untuk Android
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/launcher_icon');
 
-    // Pengaturan untuk iOS (opsional, biarkan saja jika kamu fokus ke Android)
+    // Pengaturan untuk iOS
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -22,8 +24,7 @@ class NotificationService {
       requestSoundPermission: true,
     );
 
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
+    const InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
@@ -31,10 +32,29 @@ class NotificationService {
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Apa yang terjadi jika notifikasi di-tap?
-        // Untuk sekarang biarkan kosong (hanya menutup popup).
+        // Handle notif tap (opsional)
       },
     );
+
+    // Minta izin notifikasi untuk Android 13+
+    await _requestPermission();
+  }
+
+  /// Minta izin notifikasi (Android 13+ / API 33+)
+  Future<void> _requestPermission() async {
+    final androidPlugin =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin != null) {
+      //Ini akan memunculkan dialog izin di Android 13+
+      final granted = await androidPlugin.requestNotificationsPermission();
+      _hasPermission = granted ?? false;
+      debugPrint('[NotificationService] Permission granted: $_hasPermission');
+    } else {
+      // Bukan Android, anggap punya izin
+      _hasPermission = true;
+    }
   }
 
   // Fungsi untuk memunculkan notifikasi pop-up
@@ -44,17 +64,21 @@ class NotificationService {
     required String body,
     required bool isCritical,
   }) async {
+    // Kalau izin belum dikasih, skip
+    if (!_hasPermission) {
+      debugPrint('[NotificationService] Izin belum diberikan, skip notifikasi.');
+      return;
+    }
+
     // Pengaturan bentuk notifikasi di Android
     AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
-      'pirotech_alerts', // ID Channel
-      'Peringatan Suhu PiRoTech', // Nama Channel (muncul di pengaturan HP)
+      'pirotech_alerts',
+      'Peringatan Suhu PiRoTech',
       channelDescription: 'Saluran untuk peringatan suhu reaktor',
-      importance:
-          Importance.max, // Penting agar pop-up muncul di atas (heads up)
+      importance: Importance.max,
       priority: Priority.high,
       ticker: 'PiRoTech Alert',
-      // Jika suhu kritis, gunakan warna merah dan getaran yang lebih lama
       color: isCritical ? const Color(0xFFD32F2F) : const Color(0xFFF57C00),
       enableVibration: true,
       playSound: true,
