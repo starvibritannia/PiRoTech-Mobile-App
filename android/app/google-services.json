@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1099365248426",
+    "firebase_url": "https://prikitiw-18dde-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "prikitiw-18dde",
+    "storage_bucket": "prikitiw-18dde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1099365248426:android:a5cc4500695aa46db2cfd3",
+        "android_client_info": {
+          "package_name": "com.JAMESEnterprise.pirotech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoa1q7feSQngEZv1oSniXMuUPTiJsPkPE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
