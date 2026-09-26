@@ -2674,6 +2674,10 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
   double _warningPercent = 90.0;
   bool _isPushEnabled = true;
 
+  // --- KODE BARU: PERSISTENT TIMER ---
+  Batch? _activeBatch;
+  StreamSubscription<Batch?>? _batchSub;
+
   // Tracker status agar tidak spam data ke Firebase
   String _currentAlertLevel = 'Normal';
 
@@ -2682,6 +2686,15 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
     super.initState();
     _loadRole();
     _mulaiPantauSistem(); // Nyalakan satpam saat halaman dimuat
+    _batchSub = myFirebase.FirebaseService.instance
+        .streamRunningBatch()
+        .listen((batch) {
+      if (mounted) {
+        setState(() {
+          _activeBatch = batch;
+        });
+      }
+    });
   }
 
   @override
@@ -2689,6 +2702,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
     // Wajib dimatikan saat pindah halaman agar memori HP tidak bocor
     _sensorSub?.cancel();
     _settingsSub?.cancel();
+    _batchSub?.cancel();
     super.dispose();
   }
 
@@ -3157,9 +3171,59 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
           ],
         ),
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _pages,
+          ),
+          if (_activeBatch?.status == 'running')
+            Positioned(
+              bottom: 20,
+              left: 20,
+              right: 20,
+              child: _buildPersistentTimer(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersistentTimer() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade700,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.timer_rounded, color: Colors.white),
+          const SizedBox(width: 10),
+          StreamBuilder<int>(
+            stream: Stream.periodic(const Duration(seconds: 1), (i) => i),
+            builder: (context, snapshot) {
+              if (_activeBatch == null)
+                return const Text('Loading...',
+                    style: TextStyle(color: Colors.white));
+              final startTs = _activeBatch!.originalStartTs ?? 0;
+              final accumulated = _activeBatch!.accumulatedMs;
+              final elapsedMs =
+                  DateTime.now().millisecondsSinceEpoch - startTs + accumulated;
+              final seconds = (elapsedMs / 1000).toInt();
+              final minutes = (seconds / 60).toInt();
+              final displaySeconds = (seconds % 60).toString().padLeft(2, '0');
+              final displayMinutes = minutes.toString().padLeft(2, '0');
+              return Text(
+                'Running: $displayMinutes:$displaySeconds',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
