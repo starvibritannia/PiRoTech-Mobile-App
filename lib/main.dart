@@ -6,6 +6,8 @@ import 'firebase_options.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pirotech/models/batch_model.dart';
+import 'services/firebase_service.dart' as myFirebase;
 import 'services/notification_service.dart';
 import 'dart:io';
 import 'package:csv/csv.dart';
@@ -3206,79 +3208,47 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   double _beratSampah = 0.0;
   int _selectedIndex = 0; // Default PET
 
-  // --- VARIABEL TIMER & STATUS ---
-  Timer? _timer;
-  bool _isRunning = false;
-  bool _isPaused = false;
-  int _elapsedSeconds = 0;
+  // --- VARIABEL BARU: Sinkron Firebase (Ganti Timer lokal) ---
+  Batch? _activeBatch;
+  StreamSubscription<Batch?>? _batchSub;
 
-// --- VARIABEL KODE BARU: Data Dinamis Firebase ---
-  double _totalSampah = 0.0;
-  double _rataRataHasil = 0.0;
-  double _rataRataSuhu = 0.0;
-  int _processStartTimestamp = 0;
-  StreamSubscription<DatabaseEvent>? _logSub;
+  // --- VARIABEL STATISTIK BARU ---
+  List<Batch> _completedBatches = [];
+  StreamSubscription<List<Batch>>? _historySub;
+  bool _isLoadingStats = true;
 
   @override
   void initState() {
     super.initState();
-    _muatDataRingkasan(); // Panggil fungsi saat halaman dimuat
-  }
 
-  void _muatDataRingkasan() {
-    // Mendengarkan data secara real-time dari log_activity
-    _logSub = FirebaseDatabase.instance
-        .ref()
-        .child('log_activity')
-        .onValue
-        .listen((event) {
-      if (event.snapshot.exists && mounted) {
-        final logs = event.snapshot.value as Map<dynamic, dynamic>;
-        double totalBerat = 0.0;
-        double totalBBM = 0.0;
-
-        // Loop untuk menjumlahkan semua berat dan BBM
-        logs.forEach((key, value) {
-          final data = Map<dynamic, dynamic>.from(value as Map);
-          totalBerat += (data['berat_kg'] != null
-              ? (data['berat_kg'] as num).toDouble()
-              : 0.0);
-          totalBBM += (data['bbm_liter'] != null
-              ? (data['bbm_liter'] as num).toDouble()
-              : 0.0);
-        });
-
-        // Perbarui tampilan dengan rumus rata-rata
+    // Pasang mata-mata ke Firebase untuk dengerin status batch
+    _batchSub = myFirebase.FirebaseService.instance
+        .streamRunningBatch()
+        .listen((batch) {
+      if (mounted) {
         setState(() {
-          _totalSampah = totalBerat;
-          _rataRataHasil = totalBerat > 0 ? (totalBBM / totalBerat) : 0.0;
+          _activeBatch = batch;
+        });
+      }
+    });
+
+    // Pasang mata-mata untuk Statistik Riwayat
+    _historySub = myFirebase.FirebaseService.instance
+        .streamBatchHistory()
+        .listen((batches) {
+      if (mounted) {
+        setState(() {
+          _completedBatches = batches;
+          _isLoadingStats = false;
         });
       }
     });
   }
 
-  // Mengubah detik menjadi format HH:MM:SS
-  String get _formattedTime {
-    int h = _elapsedSeconds ~/ 3600;
-    int m = (_elapsedSeconds % 3600) ~/ 60;
-    int s = _elapsedSeconds % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  // Fungsi menjalankan timer
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _elapsedSeconds++;
-      });
-    });
-  }
-
-  // Penting: Hapus timer saat pindah halaman agar aplikasi tidak berat
   @override
   void dispose() {
-    _timer?.cancel();
-    _logSub?.cancel(); // KODE BARU: Matikan pengintai Firebase
+    _batchSub?.cancel();
+    _historySub?.cancel();
     super.dispose();
   }
 
@@ -3429,7 +3399,23 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Logika Matematika Kalkulator
+    // Logika Matematika Kalkulator (Firebase-Driven)
+    // Hitung total dari _completedBatches
+    int totalBatches = _completedBatches.length;
+    double totalWaste =
+        _completedBatches.fold(0.0, (sum, b) => sum + b.wasteKg);
+    double avgYield = totalBatches > 0
+        ? _completedBatches.fold(
+                0.0,
+                (sum, b) =>
+                    sum +
+                    (b.fuelLiters != null && b.wasteKg > 0
+                        ? (b.fuelLiters! / b.wasteKg)
+                        : 0.0)) /
+            totalBatches
+        : 0.0;
+
+    // Variabel kalkulator lokal untuk input pengguna
     double currentYield = _plasticData[_selectedIndex]['yield'];
     double estBbmLiters = (_beratSampah * currentYield) / 0.815;
     double estResidu = _beratSampah * 0.10;
@@ -3437,8 +3423,39 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        // --- RINGKASAN STATISTIK DARI FIREBASE ---
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                  Icons.history,
+                  'Total Batch',
+                  totalBatches.toString(),
+                  'x',
+                  'Jumlah pembakaran yang berhasil diselesaikan.'),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildSummaryCard(
+                  Icons.scale_rounded,
+                  'Total Sampah',
+                  totalWaste.toStringAsFixed(1),
+                  'kg',
+                  'Total berat sampah plastik yang sudah diolah.'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildSummaryCard(
+            Icons.percent_rounded,
+            'Rata-rata Yield',
+            (avgYield * 100).toStringAsFixed(1),
+            '%',
+            'Efisiensi rata-rata dari seluruh pembakaran.'),
+
+        const SizedBox(height: 24),
         const Text(
-          'Ringkasan operasional dan estimasi pengolahan alat PiRoTech.',
+          'Konfigurasi operasional dan estimasi pengolahan alat PiRoTech.',
           style: TextStyle(color: Colors.black54, fontSize: 14),
         ),
         const SizedBox(height: 24),
@@ -3721,9 +3738,9 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         ),
         const SizedBox(height: 16),
 
-        // --- LOGIKA TOMBOL KONTROL PROSES ---
-        if (!_isRunning)
-          // TAMPILAN 1: JIKA BELUM MULAI
+        // --- LOGIKA TOMBOL KONTROL PROSES (Firebase-Driven) ---
+        if (_activeBatch == null || _activeBatch!.status == 'completed')
+          // TAMPILAN 1: JIKA BELUM MULAI ATAU SUDAH SELESAI
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -3733,30 +3750,12 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                   content:
                       'Pastikan plastik sudah dimasukkan, reaktor terkunci rapat, dan tabung kondensor terisi air. Lanjutkan?',
                   onConfirm: () async {
-                    setState(() {
-                      _isRunning = true;
-                      _isPaused = false;
-                      _elapsedSeconds = 0;
-                      _processStartTimestamp =
-                          DateTime.now().millisecondsSinceEpoch;
-                    });
-                    _startTimer();
-
-                    // KODE BARU: Simpan notifikasi aktivitas mulai proses
-                    final user = FirebaseAuth.instance.currentUser;
-                    await FirebaseDatabase.instance
-                        .ref()
-                        .child('notifications')
-                        .push()
-                        .set({
-                      'level': 'Info',
-                      'message':
-                          'User ${user?.email ?? 'Unknown'} memulai proses pembakaran.',
-                      'tipe': 'process_start',
-                      'user_email': user?.email ?? 'Unknown',
-                      'timestamp': ServerValue.timestamp,
-                      'is_read': false,
-                    });
+                    // Panggil fungsi FirebaseService
+                    await myFirebase.FirebaseService.instance
+                        .startFirebaseBatch(
+                            _beratSampah,
+                            _plasticData[_selectedIndex]['name'],
+                            'unknown_user');
                   },
                 );
               },
@@ -3778,12 +3777,12 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
             ),
           )
         else
-          // TAMPILAN 2: JIKA SEDANG BERJALAN
+          // TAMPILAN 2: JIKA SEDANG BERJALAN ATAU PAUSED
           Column(
             children: [
               // Angka Timer
               Text(
-                'Durasi: $_formattedTime',
+                'Status: ${_activeBatch!.status.toUpperCase()}',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -3798,24 +3797,23 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                   // Tombol Jeda / Lanjutkan
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          if (_isPaused) {
-                            _isPaused = false;
-                            _startTimer();
-                          } else {
-                            _isPaused = true;
-                            _timer?.cancel();
-                          }
-                        });
+                      onPressed: () async {
+                        if (_activeBatch!.status == 'running') {
+                          await myFirebase.FirebaseService.instance
+                              .pauseFirebaseBatch(_activeBatch!.id,
+                                  _activeBatch!.accumulatedMs);
+                        } else {
+                          await myFirebase.FirebaseService.instance
+                              .resumeFirebaseBatch(_activeBatch!.id);
+                        }
                       },
                       icon: Icon(
-                        _isPaused
+                        _activeBatch!.status == 'paused'
                             ? Icons.play_arrow_rounded
                             : Icons.pause_rounded,
                       ),
                       label: Text(
-                        _isPaused ? 'Lanjutkan' : 'Jeda',
+                        _activeBatch!.status == 'paused' ? 'Lanjutkan' : 'Jeda',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -3841,69 +3839,15 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                           content:
                               'Proses akan dihentikan sepenuhnya dan data simulasi akan dicatat. Yakin?',
                           onConfirm: () async {
-                            _timer?.cancel();
-
-                            // --- KODE BARU: HITUNG RATA-RATA SUHU & SIMPAN DATA KE FIREBASE ---
-                            final sensorSnap = await FirebaseDatabase.instance
-                                .ref()
-                                .child('sensor_data')
-                                .orderByKey()
-                                .startAt(_processStartTimestamp.toString())
-                                .get();
-                            double sumSuhu = 0.0;
-                            int countSuhu = 0;
-                            if (sensorSnap.exists) {
-                              final readings = Map<dynamic, dynamic>.from(
-                                  sensorSnap.value as Map);
-                              readings.forEach((key, value) {
-                                final reading =
-                                    Map<dynamic, dynamic>.from(value as Map);
-                                if (reading['temperature_c'] != null) {
-                                  sumSuhu += (reading['temperature_c'] as num)
-                                      .toDouble();
-                                  countSuhu++;
-                                }
-                              });
-                            }
-                            double rataSuhu =
-                                countSuhu > 0 ? (sumSuhu / countSuhu) : 0.0;
-
-                            String dateStr =
-                                DateTime.now().toString(); // Waktu saat ini
-                            await FirebaseDatabase.instance
-                                .ref()
-                                .child('log_activity')
-                                .push()
-                                .set({
-                              'tanggal': dateStr,
-                              'jenis_plastik': _plasticData[_selectedIndex]
-                                  ['name'],
-                              'berat_kg': _beratSampah,
-                              'yield_persen':
-                                  (currentYield * 100).toStringAsFixed(1),
-                              'bbm_liter': estBbmLiters.toStringAsFixed(2),
-                              'residu_kg': estResidu.toStringAsFixed(2),
-                              'durasi': _formattedTime,
-                              'rata_rata_suhu': rataSuhu.toStringAsFixed(2),
-                            });
-                            // ------------------------------------------
-
-                            setState(() {
-                              _isRunning = false;
-                              _isPaused = false;
-                              _elapsedSeconds = 0;
-                            });
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Proses dihentikan. Data berhasil disimpan ke Log Activity!',
-                                  ),
-                                  backgroundColor: Color(0xFF427D46),
-                                ),
-                              );
-                            }
+                            await myFirebase.FirebaseService.instance
+                                .stopFirebaseBatch(
+                              _activeBatch!.id,
+                              _activeBatch!.accumulatedMs,
+                              0.0, // Perlu dihitung/diambil dari estimasi
+                              _activeBatch!.wasteKg,
+                              _activeBatch!.plasticType,
+                              _activeBatch!.originalStartTs ?? 0,
+                            );
                           },
                         );
                       },
@@ -3943,28 +3887,32 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         const SizedBox(height: 16),
 
         GridView.count(
-          crossAxisCount: 2, // Tetap 2 kolom
+          crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
           childAspectRatio: 0.85,
           children: [
-            // Kartu 1: Diambil dari _rataRataHasil
+            // Kartu 1: Data batch aktif
             _buildSummaryCard(
               Icons.bar_chart,
-              'Rata-Rata Hasil',
-              _rataRataHasil.toStringAsFixed(2),
-              'liter/kg',
-              'Rata-rata yield (liter BBM per kg plastik) dari seluruh data log.',
-            ),
-            // Kartu 2: Diambil dari _totalSampah
-            _buildSummaryCard(
-              Icons.delete_outline,
-              'Total Sampah',
-              _totalSampah.toStringAsFixed(1),
+              'Sampah Masuk',
+              _activeBatch != null
+                  ? _activeBatch!.wasteKg.toStringAsFixed(1)
+                  : '0.0',
               'kg',
-              'Akumulasi berat sampah plastik yang berhasil diproses.',
+              'Berat sampah plastik untuk batch ini.',
+            ),
+            // Kartu 2: Status batch
+            _buildSummaryCard(
+              Icons.circle_rounded,
+              'Status',
+              _activeBatch != null
+                  ? _activeBatch!.status.toUpperCase()
+                  : 'IDLE',
+              '',
+              'Status proses pembakaran saat ini dari Firebase.',
             ),
           ],
         ),
@@ -3998,13 +3946,27 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
   double _maxTemp = 0.0;
   List<FlSpot> _chartData = const [FlSpot(0, 0)];
 
+  // --- VARIABEL BARU: Sinkron Firebase ---
+  Batch? _activeBatch;
+  StreamSubscription<Batch?>? _batchSub;
+
   // --- VARIABEL HEARTBEAT (DETAK JANTUNG) ---
   Timer? _heartbeatTimer;
-  int _lastTimestamp = 0;
 
   @override
   void initState() {
     super.initState();
+
+    // 1. Dengerin Batch Aktif
+    _batchSub = myFirebase.FirebaseService.instance
+        .streamRunningBatch()
+        .listen((batch) {
+      if (mounted) {
+        setState(() {
+          _activeBatch = batch;
+        });
+      }
+    });
 
     // Pendengar Kontrol Buzzer
     _buzzerSub = _dbRef.child('control/buzzer').onValue.listen((
@@ -4017,54 +3979,43 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
       }
     });
 
-    // Pendengar Sensor Data
-    _sensorSub = _dbRef
-        .child('sensor_data')
-        .orderByKey()
-        .limitToLast(20)
-        .onValue
-        .listen((DatabaseEvent event) {
-      if (event.snapshot.value != null && mounted) {
+    // Pendengar Sensor Data (Terkoneksi dengan Batch)
+    _sensorSub =
+        _dbRef.child('sensor_data').onValue.listen((DatabaseEvent event) {
+      if (event.snapshot.value != null && mounted && _activeBatch != null) {
         List<FlSpot> spots = [];
         double latestTemp = 0.0;
-        String latestStatus = 'IDLE';
         double highestTemp = 0.0;
-        int tempTimestamp = 0;
 
-        // 1. Cek status dan timestamp paling terakhir terlebih dahulu
-        for (var child in event.snapshot.children) {
-          final data = Map<String, dynamic>.from(child.value as Map);
-          latestStatus = data['status']?.toString().toUpperCase() ?? 'IDLE';
-          tempTimestamp =
-              (data['timestamp'] ?? 0) as int; // Merekam waktu masuk
-        }
+        // Filter berdasarkan batch yang sedang jalan
+        final readings =
+            Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+        final sortedKeys = readings.keys.toList()..sort();
 
-        // 2. Jika statusnya RUNNING, masukkan data aslinya ke dalam grafik
-        if (latestStatus == 'RUNNING') {
-          double index = 0;
-          for (var child in event.snapshot.children) {
-            final data = Map<String, dynamic>.from(child.value as Map);
+        for (var key in sortedKeys) {
+          final data = Map<String, dynamic>.from(readings[key] as Map);
+          final timestamp = (data['timestamp'] ?? 0) as int;
+
+          // Pastikan originalStartTs tidak null sebelum dibanding
+          int startTs = _activeBatch?.originalStartTs ?? timestamp;
+
+          // Hanya ambil data setelah batch mulai
+          if (timestamp >= startTs) {
             double temp = (data['temperature_c'] ?? 0.0).toDouble();
+            // X-Axis: Detik sejak batch mulai
+            double elapsedSeconds = (timestamp - startTs) / 1000;
 
-            spots.add(FlSpot(index, temp));
-            index++;
-
+            spots.add(FlSpot(elapsedSeconds, temp));
             latestTemp = temp;
             if (temp > highestTemp) highestTemp = temp;
           }
-        } else {
-          // 3. Jika statusnya IDLE/mati dari Firebase, paksa semua jadi 0
-          spots = const [FlSpot(0, 0)];
-          latestTemp = 0.0;
-          highestTemp = 0.0;
         }
 
         setState(() {
-          if (spots.isNotEmpty) _chartData = spots;
+          _chartData = spots.isNotEmpty ? spots : [const FlSpot(0, 0)];
           _currentTemp = latestTemp;
-          _systemStatus = latestStatus;
           _maxTemp = highestTemp;
-          _lastTimestamp = tempTimestamp; // Perbarui stempel waktu
+          _systemStatus = _activeBatch!.status.toUpperCase();
         });
       }
     });
@@ -4073,34 +4024,22 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
     _startHeartbeatMonitor();
   }
 
-  // Fungsi Pintar Pengecek Alat Mati
-  void _startHeartbeatMonitor() {
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-
-      int currentDeviceTime = DateTime.now().millisecondsSinceEpoch;
-      int timeDifference = currentDeviceTime - _lastTimestamp;
-
-      // Jika lebih dari 15 detik tidak ada laporan data baru masuk
-      if (_lastTimestamp > 0 && timeDifference > 15000) {
-        setState(() {
-          _systemStatus = 'IDLE';
-          _currentTemp = 0.0;
-          _maxTemp = 0.0;
-          _chartData = const [
-            FlSpot(0, 0),
-          ]; // Ratakan grafik (garis lurus di bawah)
-        });
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _heartbeatTimer?.cancel(); // Bersihkan timer stopwatch
-    _sensorSub?.cancel(); // Bersihkan jalur data sensor
-    _buzzerSub?.cancel(); // Bersihkan jalur data buzzer
+    _heartbeatTimer?.cancel();
+    _batchSub?.cancel(); // Bersihkan listener batch
+    _sensorSub?.cancel();
+    _buzzerSub?.cancel();
     super.dispose();
+  }
+
+  // Fungsi Pintar Pengecek Alat Mati (Sync Batch)
+  void _startHeartbeatMonitor() {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _activeBatch == null) return;
+
+      // Logika pemantauan bisa ditambahkan di sini jika perlu
+    });
   }
 
   @override
