@@ -1,8 +1,10 @@
 // lib/services/firebase_service.dart
 
 import 'package:firebase_database/firebase_database.dart';
+import 'package:intl/intl.dart';
 import '../models/models.dart';
-import '../models/batch_model.dart'; // Import model baru
+import '../models/batch_model.dart';
+import '../utils/session_id_generator.dart'; // Import generator
 
 class FirebaseService {
   // Singleton instance
@@ -47,16 +49,19 @@ class FirebaseService {
 
   // --- Fungsi Kontrol Batch (Sinkron Web) ---
   
-  Future<void> startFirebaseBatch(double wasteKg, String plasticType, String userId) async {
-    final ref = _db.ref('batches').push();
-    await ref.set({
-      'originalStartTs': ServerValue.timestamp,
-      'status': 'running',
+  Future<void> startFirebaseBatch(double wasteKg, String plasticType, String username) async {
+    final sessionId = await SessionIdGenerator.generateSessionId(username);
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await _db.ref('batches/$sessionId').set({
+      'sessionId': sessionId,
+      'startTs': now,
+      'originalStartTs': now,
+      'startedBy': username,
       'wasteKg': wasteKg,
       'plasticType': plasticType,
-      'userId': userId,
+      'status': 'running',
       'accumulatedMs': 0,
-      'lastStartedAt': ServerValue.timestamp,
     });
   }
 
@@ -75,26 +80,59 @@ class FirebaseService {
     });
   }
 
-  Future<void> stopFirebaseBatch(String batchId, int accumulatedMs, double resultKg, double wasteKg, String plasticType, int startTs) async {
-    // Jika resultKg nol (karena ESP32 mati), pakai rumus estimasi
-    double finalResultKg = resultKg > 0 
-        ? resultKg 
-        : (wasteKg * 0.5) / 0.815; // Estimasi rata-rata yield (0.5) / densitas
+  Future<void> stopFirebaseBatch(String batchId, int accumulatedMs, double wasteKg, String plasticType, int startTs) async {
+    // 1. Hitung rentang untuk query efisien (Sesuai panduan Log Activity)
+    final startId = SessionIdGenerator.generatePushIdFromTimestamp(startTs);
+    final endId = SessionIdGenerator.generatePushIdFromTimestamp(DateTime.now().millisecondsSinceEpoch);
 
+    // 2. Query sensor_data efisien
+    final query = _db.ref('sensor_data').orderByKey().startAt(startId).endAt(endId);
+    final snapshot = await query.get();
+
+    double totalTemp = 0.0;
+    double maxTemp = 0.0;
+    int count = 0;
+
+    if (snapshot.exists) {
+      final readings = Map<dynamic, dynamic>.from(snapshot.value as Map);
+      readings.forEach((key, value) {
+        final data = Map<String, dynamic>.from(value as Map);
+        final temp = (data['temperature_c'] ?? 0.0).toDouble();
+        totalTemp += temp;
+        if (temp > maxTemp) maxTemp = temp;
+        count++;
+      });
+    }
+
+    double avgTemp = count > 0 ? totalTemp / count : 0.0;
+
+    // 3. Estimasi BBM (Sesuai panduan)
+    // Yield rata-rata 0.5
+    double finalResultKg = (wasteKg * 0.5) / 0.815; 
+
+    // 4. Update status batch
     await _db.ref('batches/$batchId').update({
       'status': 'completed',
-      'endedAt': ServerValue.timestamp,
+      'endTs': DateTime.now().millisecondsSinceEpoch,
       'accumulatedMs': accumulatedMs,
       'fuelLiters': finalResultKg,
+      'averageTempC': double.parse(avgTemp.toStringAsFixed(1)),
     });
     
-    // Simpan ke log_activity juga untuk history
-    await _db.ref('log_activity').push().set({
-      'tanggal': DateTime.now().toString(),
-      'jenis_plastik': plasticType,
+    // 5. Simpan ke log_activity (Format Sesuai Panduan)
+    final duration = Duration(milliseconds: accumulatedMs);
+    String formattedDuration = "${duration.inHours.toString().padLeft(2, '0')}:${(duration.inMinutes % 60).toString().padLeft(2, '0')}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}";
+
+    await _db.ref('log_activity/$batchId').set({
+      'tanggal': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+      'startTs': startTs,
+      'endTs': DateTime.now().millisecondsSinceEpoch,
       'berat_kg': wasteKg,
-      'hasil_kg': finalResultKg,
-      'durasi_ms': accumulatedMs,
+      'jenis_plastik': plasticType.toUpperCase(),
+      'bbm_liter': double.parse(finalResultKg.toStringAsFixed(2)),
+      'durasi': formattedDuration,
+      'suhu_avg': double.parse(avgTemp.toStringAsFixed(1)),
+      'suhu_max': double.parse(maxTemp.toStringAsFixed(1)),
     });
   }
 

@@ -3208,7 +3208,7 @@ class _AdminDashboardShellState extends State<AdminDashboardShell> {
               if (_activeBatch == null)
                 return const Text('Loading...',
                     style: TextStyle(color: Colors.white));
-              final startTs = _activeBatch!.originalStartTs ?? 0;
+              final startTs = _activeBatch!.originalStartTs; // Sudah int, tidak perlu ?? 0
               final accumulated = _activeBatch!.accumulatedMs;
               final elapsedMs =
                   DateTime.now().millisecondsSinceEpoch - startTs + accumulated;
@@ -3864,11 +3864,11 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                       onPressed: () async {
                         if (_activeBatch!.status == 'running') {
                           await myFirebase.FirebaseService.instance
-                              .pauseFirebaseBatch(_activeBatch!.id,
+                              .pauseFirebaseBatch(_activeBatch!.sessionId,
                                   _activeBatch!.accumulatedMs);
                         } else {
                           await myFirebase.FirebaseService.instance
-                              .resumeFirebaseBatch(_activeBatch!.id);
+                              .resumeFirebaseBatch(_activeBatch!.sessionId);
                         }
                       },
                       icon: Icon(
@@ -3904,14 +3904,13 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                               'Proses akan dihentikan sepenuhnya dan data simulasi akan dicatat. Yakin?',
                           onConfirm: () async {
                             await myFirebase.FirebaseService.instance
-                                .stopFirebaseBatch(
-                              _activeBatch!.id,
-                              _activeBatch!.accumulatedMs,
-                              0.0, // Perlu dihitung/diambil dari estimasi
-                              _activeBatch!.wasteKg,
-                              _activeBatch!.plasticType,
-                              _activeBatch!.originalStartTs ?? 0,
-                            );
+                                  .stopFirebaseBatch(
+                                _activeBatch!.sessionId,
+                                _activeBatch!.accumulatedMs,
+                                _activeBatch!.wasteKg,
+                                _activeBatch!.plasticType,
+                                _activeBatch!.originalStartTs,
+                              );
                           },
                         );
                       },
