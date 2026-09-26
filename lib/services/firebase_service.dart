@@ -76,10 +76,16 @@ class FirebaseService {
   }
 
   Future<void> stopFirebaseBatch(String batchId, int accumulatedMs, double resultKg, double wasteKg, String plasticType, int startTs) async {
+    // Jika resultKg nol (karena ESP32 mati), pakai rumus estimasi
+    double finalResultKg = resultKg > 0 
+        ? resultKg 
+        : (wasteKg * 0.5) / 0.815; // Estimasi rata-rata yield (0.5) / densitas
+
     await _db.ref('batches/$batchId').update({
       'status': 'completed',
       'endedAt': ServerValue.timestamp,
       'accumulatedMs': accumulatedMs,
+      'fuelLiters': finalResultKg,
     });
     
     // Simpan ke log_activity juga untuk history
@@ -87,7 +93,7 @@ class FirebaseService {
       'tanggal': DateTime.now().toString(),
       'jenis_plastik': plasticType,
       'berat_kg': wasteKg,
-      'hasil_kg': resultKg,
+      'hasil_kg': finalResultKg,
       'durasi_ms': accumulatedMs,
     });
   }
