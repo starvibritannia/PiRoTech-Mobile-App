@@ -4713,11 +4713,15 @@ class _AdminLogActivityScreenState extends State<AdminLogActivityScreen> {
               // Hapus semua data terpilih dari Firebase secara otomatis
               for (String key in _selectedKeys) {
                 await _dbRef.child('log_activity').child(key).remove();
+                // Hapus juga dari source batches agar tidak di-sync ulang (sama kayak web ganadzikri)
+                await _dbRef.child('batches').child(key).remove();
+                // Pastikan data juga dihapus dari cache lokal
+                if (mounted) {
+                  setState(() {
+                    _selectedKeys.remove(key);
+                  });
+                }
               }
-              setState(() {
-                _selectedKeys
-                    .clear(); // Bersihkan pilihan setelah sukses dihapus
-              });
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
