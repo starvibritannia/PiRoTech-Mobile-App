@@ -3462,22 +3462,15 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Logika Matematika Kalkulator (Firebase-Driven)
-    // Hitung total dari _completedBatches
-    int totalBatches = _completedBatches.length;
-    double totalWaste =
-        _completedBatches.fold(0.0, (sum, b) => sum + b.wasteKg);
-    double avgYield = totalBatches > 0
-        ? _completedBatches.fold(
-                0.0,
-                (sum, b) =>
-                    sum +
-                    (b.fuelLiters != null && b.wasteKg > 0
-                        ? (b.fuelLiters! / b.wasteKg)
-                        : 0.0)) /
-            totalBatches
-        : 0.0;
+    Widget build(BuildContext context) {
+      // --- RINGKASAN STATISTIK DARI FIREBASE ---
+      int totalBatches = _completedBatches.length;
+      double totalWaste =
+          _completedBatches.fold(0.0, (sum, b) => sum + b.wasteKg);
+      double totalFuel =
+          _completedBatches.fold(0.0, (sum, b) => sum + (b.fuelLiters ?? 0.0));
+      double avgYield = totalWaste > 0 ? (totalFuel / totalWaste) : 0.0;
+      final emissionsSaved = totalWaste * 2.9;
 
     // Variabel kalkulator lokal untuk input pengguna
     double currentYield = _plasticData[_selectedIndex]['yield'];
@@ -3485,44 +3478,13 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
     double estResidu = _beratSampah * 0.10;
 
     return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        // --- RINGKASAN STATISTIK DARI FIREBASE ---
-        Row(
+          padding: const EdgeInsets.all(20),
           children: [
-            Expanded(
-              child: _buildSummaryCard(
-                  Icons.history,
-                  'Total Batch',
-                  totalBatches.toString(),
-                  'x',
-                  'Jumlah pembakaran yang berhasil diselesaikan.'),
+            const Text(
+              'Konfigurasi operasional dan estimasi pengolahan alat PiRoTech.',
+              style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildSummaryCard(
-                  Icons.scale_rounded,
-                  'Total Sampah',
-                  totalWaste.toStringAsFixed(1),
-                  'kg',
-                  'Total berat sampah plastik yang sudah diolah.'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildSummaryCard(
-            Icons.percent_rounded,
-            'Rata-rata Yield',
-            (avgYield * 100).toStringAsFixed(1),
-            '%',
-            'Efisiensi rata-rata dari seluruh pembakaran.'),
-
-        const SizedBox(height: 24),
-        const Text(
-          'Konfigurasi operasional dan estimasi pengolahan alat PiRoTech.',
-          style: TextStyle(color: Colors.black54, fontSize: 14),
-        ),
-        const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
         // --- KOTAK INPUT (PUTIH) ---
         Container(
@@ -3949,36 +3911,56 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
         ),
         const SizedBox(height: 16),
 
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.85,
-          children: [
-            // Kartu 1: Data batch aktif
-            _buildSummaryCard(
-              Icons.bar_chart,
-              'Sampah Masuk',
-              _activeBatch != null
-                  ? _activeBatch!.wasteKg.toStringAsFixed(1)
-                  : '0.0',
-              'kg',
-              'Berat sampah plastik untuk batch ini.',
-            ),
-            // Kartu 2: Status batch
-            _buildSummaryCard(
-              Icons.circle_rounded,
-              'Status',
-              _activeBatch != null
-                  ? _activeBatch!.status.toUpperCase()
-                  : 'IDLE',
-              '',
-              'Status proses pembakaran saat ini dari Firebase.',
-            ),
-          ],
-        ),
+        // --- RINGKASAN PENGOLAHAN (STATISTIK RIL) ---
+        Builder(builder: (context) {
+          final totalWaste = _completedBatches.fold(0.0, (sum, b) => sum + b.wasteKg);
+          final totalFuel = _completedBatches.fold(0.0, (sum, b) => sum + (b.fuelLiters ?? 0.0));
+          final avgYield = totalWaste > 0 ? (totalFuel / totalWaste) : 0.0;
+          final emissionsSaved = totalWaste * 2.9;
+
+          return GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.85,
+            children: [
+              // Kartu 1: Rata-Rata Hasil
+              _buildSummaryCard(
+                Icons.bar_chart_rounded,
+                'Rata-Rata Hasil',
+                avgYield.toStringAsFixed(2),
+                'Liter/kg',
+                'Rata-rata BBM yang dihasilkan dari seluruh pengolahan.',
+              ),
+              // Kartu 2: Dampak Lingkungan
+              _buildSummaryCard(
+                Icons.eco_rounded,
+                'CO₂ Dihemat',
+                emissionsSaved.toStringAsFixed(1),
+                'kg',
+                'Estimasi emisi CO₂ yang dihemat.',
+              ),
+              // Kartu 3: Total Sampah
+              _buildSummaryCard(
+                Icons.delete_sweep_rounded,
+                'Total Sampah',
+                totalWaste.toStringAsFixed(1),
+                'kg',
+                'Akumulasi seluruh sampah yang telah diproses.',
+              ),
+              // Kartu 4: Status Batch (Tetap ada)
+              _buildSummaryCard(
+                Icons.circle_rounded,
+                'Status Alat',
+                _activeBatch != null ? _activeBatch!.status.toUpperCase() : 'IDLE',
+                '',
+                'Status proses pembakaran saat ini.',
+              ),
+            ],
+          );
+        }),
 
         const SizedBox(height: 40), // Jarak aman bawah
       ],
