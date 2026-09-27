@@ -3806,14 +3806,34 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
           // TAMPILAN 2: JIKA SEDANG BERJALAN ATAU PAUSED
           Column(
             children: [
-              // Angka Timer
-              Text(
-                'Status: ${_activeBatch!.status.toUpperCase()}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF427D46),
-                  letterSpacing: 2,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF427D46),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Proses Sedang Berjalan',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E5930),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -3949,14 +3969,6 @@ class _AdminOverviewScreenState extends State<AdminOverviewScreen> {
                 totalWaste.toStringAsFixed(1),
                 'kg',
                 'Akumulasi seluruh sampah yang telah diproses.',
-              ),
-              // Kartu 4: Status Batch (Tetap ada)
-              _buildSummaryCard(
-                Icons.circle_rounded,
-                'Status Alat',
-                _activeBatch != null ? _activeBatch!.status.toUpperCase() : 'IDLE',
-                '',
-                'Status proses pembakaran saat ini.',
               ),
             ],
           );
