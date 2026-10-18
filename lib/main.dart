@@ -743,37 +743,61 @@ class _BerandaScreenState extends State<BerandaScreen> {
           '1',
           'Sortir & Bersihkan',
           'Pilah sampah plastik sesuai jenis (PET, HDPE, PP, dll.). Bersihkan dari sisa makanan atau kotoran, lalu keringkan.',
-          'assets/step-sortir.webp',
+          'assets/step-sortir-v2.webp',
         ),
         _buildStepCard(
           '2',
-          'Masukkan ke Reaktor',
-          'Masukkan plastik yang sudah bersih dan kering ke dalam reaktor utama hingga batas aman kapasitas.',
-          'assets/step-masukkan.webp',
+          'Timbang & Estimasi Hasil',
+          'Timbang berat sampah plastik yang disortir. Gunakan kalkulator di web/aplikasi untuk melihat perkiraan hasil BBM yang akan didapat sesuai jenis sampahnya.',
+          'assets/step-timbang-v2.webp',
         ),
         _buildStepCard(
           '3',
-          'Tutup & Kunci Reaktor',
-          'Pasang tutup kerucut dan kunci dengan klem pengunci hingga kedap udara. Pastikan semua sambungan rapat.',
-          'assets/step-tutup.webp',
+          'Masukkan ke Reaktor',
+          'Masukkan plastik yang sudah bersih dan kering ke dalam reaktor utama hingga batas aman kapasitas.',
+          'assets/step-masukkan-v2.webp',
         ),
         _buildStepCard(
           '4',
-          'Panaskan Bertahap',
-          'Nyalakan sumber pemanas dan naikkan suhu secara bertahap. Proses pirolisis optimal terjadi pada suhu 300-450°C.',
-          'assets/step-panaskan.webp',
+          'Tutup & Kunci Reaktor',
+          'Pasang tutup kerucut dan kunci dengan klem pengunci hingga kedap udara. Pastikan semua sambungan rapat.',
+          'assets/step-tutup-v2.webp',
         ),
         _buildStepCard(
           '5',
-          'Kondensasi Uap',
-          'Uap yang dihasilkan mengalir melalui pipa ke kondensor, di mana uap didinginkan dan berubah menjadi cairan bahan bakar.',
-          'assets/step-kondensasi.webp',
+          'Pasang Sensor IoT',
+          'Sambungkan kabel sensor suhu dari reaktor secara presisi ke perangkat IoT pintar PiRoTech untuk menjamin pembacaan data yang akurat.',
+          'assets/step-pasang-iot-v2.webp',
         ),
         _buildStepCard(
           '6',
+          'Nyalakan Reaktor & Alat IoT',
+          'Mulai nyalakan pemanas reaktor. Perangkat IoT monitoring akan otomatis menyala, melakukan inisiasi, dan bersiap membaca suhu secara langsung..',
+          'assets/step-nyalakan-reaktor-v2.webp',
+        ),
+        _buildStepCard(
+          '7',
+          'Panaskan Bertahap',
+          'Nyalakan sumber pemanas (kompor) dan naikkan suhu secara bertahap. Proses pirolisis optimal terjadi pada suhu 100–200°C tanpa oksigen.',
+          'assets/step-panaskan-v2.webp',
+        ),
+        _buildStepCard(
+          '8',
+          'Pantau Real-Time',
+          'Awasi grafik suhu dan status reaktor secara real-time melalui dashboard di web atau aplikasi. Sangat mudah memastikan proses tetap berada pada suhu ideal.',
+          'assets/step-monitoring-v2.webp',
+        ),
+        _buildStepCard(
+          '9',
+          'Kondensasi Uap',
+          'Uap yang dihasilkan mengalir melalui pipa ke kondensor, di mana uap didinginkan dan berubah menjadi cairan bahan bakar (minyak pirolisis).',
+          'assets/step-kondensasi-v2.webp',
+        ),
+        _buildStepCard(
+          '10',
           'Tampung Hasil BBM',
-          'Minyak pirolisis cair keluar dari ujung kondensor dan ditampung di wadah. Hasilnya siap digunakan.',
-          'assets/step-hasil.webp',
+          'Minyak pirolisis cair keluar dari ujung kondensor dan ditampung di wadah. Hasilnya adalah bahan bakar cair setara solar yang siap digunakan.',
+          'assets/step-hasil-v2.webp',
         ),
 
         const SizedBox(height: 40), // Jarak aman untuk bagian selanjutnya
@@ -1666,7 +1690,7 @@ class PanduanScreen extends StatelessWidget {
                 ),
                 // Pastikan file penting.webp ada di folder assets kamu
                 child: Image.asset(
-                  'assets/penting.webp',
+                  'assets/penting-v2.webp',
                   fit: BoxFit.cover,
                   width: double.infinity,
                 ),
@@ -1842,7 +1866,7 @@ class PanduanScreen extends StatelessWidget {
         // Gambar Skema 3D
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Image.asset('assets/skema.webp', fit: BoxFit.cover),
+          child: Image.asset('assets/skema-v2.webp', fit: BoxFit.cover),
         ),
         const SizedBox(height: 24),
 
@@ -1926,7 +1950,7 @@ class PanduanScreen extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Image.asset(
-            'assets/aman.webp',
+            'assets/aman-v2.webp',
             fit: BoxFit.cover,
             width: double.infinity,
           ),
