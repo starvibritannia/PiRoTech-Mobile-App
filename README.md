@@ -32,11 +32,11 @@ PiRoTech adalah aplikasi mobile berbasis Flutter yang dirancang untuk monitoring
 5. Jalankan aplikasi:
    `flutter run`
 
-## Kontribusi 🤝
+## Kontribusi
 
 Repositori ini terbuka untuk pengembangan lebih lanjut. Jika kamu memiliki saran atau ingin melaporkan bug, silakan buat [Issue](https://github.com/starvibritannia/PiRoTech-Mobile-App/issues) baru!
 
-## Lisensi 📄
+## Lisensi
 
 Projek ini dikembangkan oleh JAMES Enterprise. Semua hak dilindungi.
 
